@@ -1,0 +1,109 @@
+At the moment the preload method only works for Solaris, but it should
+not be too hard to port it to other architectures supporting
+LD_PRELOAD. Unfortunately it is nearly impossible to make the preload
+method work under GLIBC versions >= 2.1, so don't expect this to be
+done.
+
+How To Install
+--------------
+
+To compile type
+
+  ./configure
+  make
+
+To install, log in as root and type
+
+  make install
+
+This will install the 'avfs_server' program in '/usr/lib/avfs/' and
+the 'avfs_preload.so' shared library in '/usr/lib/'. It will also
+install some extfs handlers under '/usr/lib/avfs/extfs/'.
+
+If you want to install to some place other then '/usr/', then specify
+the '--prefix' argument to 'configure'.
+
+If you do not have root access you can still use avfs. You should
+either pass '--prefix' a directory that you own (for example your home
+directory), or copy the files manually.
+
+The avfs_server is started automatically, whenever it is first
+needed. If you used 'make install' to install the components, avfs
+should find the server automatically. Otherwise you will need to set
+the AVFS_SERVER_PATH environment variable to the complete pathname of
+the server (e.g. 'setenv AVFS_SERVER_PATH=/foo/bar/avfs_server')
+
+Enabling AVFS
+-------------
+
+To enable AVFS support, set the environment variable LD_PRELOAD to
+avfs_preload.so:
+
+in C-shell type shells (csh, tcsh, ...)
+
+  setenv LD_PRELOAD avfs_preload.so
+    or
+  setenv LD_PRELOAD /usr/lib/avfs_preload.so
+
+in Bourne-shell type shells (sh, bash, ...)
+  
+  export LD_PRELOAD=avfs_preload.so
+    or
+  export LD_PRELOAD=/usr/lib/avfs_preload.so
+
+
+You can try it out by entering the command
+
+  ls /#avfsstat
+
+
+Having AVFS Permanently In Your System
+--------------------------------------
+
+Simple method:
+- - - - - - - -
+
+If you want to have AVFS permanently, you could set the LD_PRELOAD
+variable in your '.profile' or '.tcshrc', but note, that this way the
+shell will still be started without AVFS, so no 'cd'-ing until you
+start a subshell. 
+
+AVFS for the X desktop:
+- - - - - - - - - - - -
+
+A better solution is to set LD_PRELOAD for the window manager, or
+desktop manager. To do this you should set the variable in .xinitrc or
+.Xclients before the window manager is started. This way you'll have
+AVFS functionality in everything.
+
+For example your .Xclients could look like this:
+
+----------------------------------------------------------------------
+#!/bin/bash
+# add any local customizations here, before startke runs
+export LD_PRELOAD=avfs_preload.so
+/opt/kde/bin/startkde
+----------------------------------------------------------------------
+
+AVFS in login shells for all users:
+- - - - - - - - - - - - - - - - - -
+
+You could also have a look at the 'csh.login-beginning' and the
+'profile-beginning' scripts written by Egmont Koblinger in the 'misc'
+directory. You can insert these at the beginning of the /etc/csh.login
+and /etc/profile scripts respectively.
+
+These scripts start a new shell with AVFS access on login, so you can
+'cd' into virtual directories in your login shell.
+
+The scripts set AVFS access for all users except root. Users can
+disable AVFS by creating a '.no_avfs' file in their home directory.
+
+
+How Does It Work
+----------------
+
+The 'preload' method works by "overriding" the system calls in the
+libc library, and replacing them with versions that can emulate
+virtual files.
+

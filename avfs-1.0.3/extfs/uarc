@@ -1,0 +1,56 @@
+#!/bin/sh
+
+# This is a parser for ARC archive files in Midnight Commander. You need 
+# the GPL nomarch program (version >= 1.3) written by Russell Marks.
+
+# Author: Guus Jansman
+
+# Alternative programs (not supported by this script):
+# arc (Howard Chu)
+
+# Settings:
+UNARC="nomarch"
+
+mcarcfs_list ()
+{
+    $UNARC -lv "$1" | gawk -v uid=$(id -ru) '
+    BEGIN { date="JanFebMarAprMayJunJulAugSepOctNovDec" }
+    {
+        split(substr($0, 14), t)
+        str=substr($0, 1, 13)
+        while (length(str) != 0 && substr(str, length(str), 1) == " ")
+        {
+            str=substr(str, 1, length(str) - 1)
+        }
+        split(t[5], a, "-")
+        perm="-rw-r--r--"
+        printf "%s    1 %-8d %-8d %8d %3s %2d %4d %s %s\n", perm, uid, 0, t[4], substr(date, (a[2]-1)*3+1, 3), a[3], a[1], t[6], str
+    }'
+}
+
+mcarcfs_copyout ()
+{
+    $UNARC -p "$1" "$2" > "$3" 2>/dev/null
+}
+
+mcarcfs_test ()
+{
+    if $UNARC -t "$1" >/dev/null 2>&1; then
+        echo "OK"
+    else
+        echo "UNKNOWN"
+    fi
+}
+
+
+umask 077
+
+cmd="$1"
+shift
+case "$cmd" in
+    list)       mcarcfs_list    "$@" ;;
+    copyout)    mcarcfs_copyout "$@" ;;
+#    test)       mcarcfs_test    "$@" ;;        # Not supported by MC extfs
+    *)          exit 1 ;;
+esac
+exit 0

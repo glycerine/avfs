@@ -1,0 +1,30 @@
+#!/bin/bash
+# mountavfs -- program to mount avfs file system
+# and load avfsd daemon.
+# companion program to umountavfs
+# will check to see if avfs is mounted and then
+# load the avfsd daemon which will mount avfs.
+# last updated 2010-09-12
+
+# suggested use: in a login script or wm startup routine
+
+if [ -d "$AVFSBASE" ]; then
+    MntDir="$AVFSBASE"
+else
+    MntDir=${HOME}/.avfs
+fi
+
+grep -qE "avfsd ${MntDir}" /proc/mounts || {
+   if [ ! -e "$MntDir" ]; then
+      mkdir -p "$MntDir"
+   fi
+   if [ ! -d "$MntDir" ]; then
+      echo "$MntDir exists but is no directory"
+      exit 1
+   fi
+   echo Mounting AVFS on $MntDir...
+   avfsd "$MntDir"
+   while test ! -e "$MntDir/#avfsstat/symlink_rewrite"
+   do sleep 0.5 ; done
+   echo "1" >| "$MntDir/#avfsstat/symlink_rewrite"
+}

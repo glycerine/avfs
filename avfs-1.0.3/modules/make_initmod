@@ -1,0 +1,31 @@
+#! /bin/sh
+
+modnames=
+for obj
+do
+  bname=`basename $obj .c`
+  modnames="$modnames $bname"
+done
+
+echo "/* This file was generated automatically by 'make_initmod' */"
+echo
+echo '#include "avfs.h"'
+echo
+
+for name in $modnames; do
+  echo "int av_init_module_${name}(struct vmodule *module);"
+done
+
+echo
+echo "extern void av_init_static_modules();"
+echo
+echo "void av_init_static_modules()"
+echo "{"
+
+for name in $modnames; do
+  echo "    av_init_module_${name}(NULL);"
+done
+
+echo "}"
+echo
+echo "/* End of file */"

@@ -1,0 +1,47 @@
+#! /bin/sh
+# avfscoda
+# init script for debian
+
+return=$rc_done
+case "$1" in
+    start)
+	echo -n "Loading redir module"
+	/sbin/modprobe -s redir || echo -n " failed"
+	echo "."
+	
+	# try to load coda module (no problem if it fails, because it can be
+	# in the kernel)
+	/sbin/modprobe coda > /dev/null 2>&1
+
+	echo -n "Starting avfscoda"
+	start-stop-daemon --start --quiet --exec /usr/sbin/avfscoda
+	echo "."
+	;;
+
+    stop)
+	echo -n "Shutting down avfscoda"
+	if test -x /usr/sbin/flushredir; then
+	    /usr/sbin/flushredir
+	fi
+	start-stop-daemon --stop --quiet --exec /usr/sbin/avfscoda
+	echo "."
+
+	echo -n "Unloading redir module"
+	/sbin/rmmod -s redir || echo -n " failed"
+	echo "."
+	;;
+
+    restart|reload|force-reload)
+	$0 stop && $0 start || return=$rc_failed
+	;;
+
+    status)
+	echo "Checking for avfscoda: ???"
+	;;
+    *)
+	echo "Usage: $0 {start|stop|status|restart|reload}"
+	exit 1
+	;;
+esac
+
+exit 0

@@ -1,0 +1,411 @@
+AVFS API Overview
+Frederik Eaton (frederik@ugcs.caltech.edu)
+2003/3/26
+
+Writing a module
+
+There are several different ways to write a new filesystem module for
+avfs. If you only need basic functionality and you don't care about
+efficiency, you might want to look at extfs. extfs allows you to
+implement simple filesystem modules as short, standalone scripts. It
+is documented in extfs/README.extfs. If extfs isn't good enough, then
+you can use the low-level C API, or one of the helper libraries built
+on top of it. There are currently four such libraries: 'filter', for
+modules which act on single files (see ubzip2.c); 'archive', for
+archive-style modules (see uar.c); 'remote' for things like ssh, rsh,
+and ftp (see rsh.c); and 'state' which exports a procfs-like "get/set"
+filesystem (see ftp_init_ctl in ftp.c). An example of a module built
+directly on the low-level API is 'volatile', in modules/volatile.c.
+
+The final source of information about each of the different interfaces
+is always the avfs source code. This document tries to give a
+high-level overview which should help make the code more
+understandable.
+
+ The low-level interface
+
+  Data structures
+
+Let's start with ventry and vfile. These are somewhat analogous to the
+Linux kernel's 'inode' and 'file' structures, respectively. 
+
+struct ventry {
+    void *data;
+    struct avmount *mnt;
+};
+
+struct vfile {
+    void *data;
+    struct avmount *mnt;
+    int flags;
+    int ptr;
+    avmutex lock;
+};
+
+A ventry just represents a path in the file system. You can convert
+from a path to a ventry using av_get_ventry (internal.h). In order to
+read or write to the corresponding file, one must obtain a vfile by
+"opening" the ventry with av_open (oper.h). This calls the 'open'
+method of the appropriate filesystem module. This method, along with
+many others, is stored as a function pointer in an object of type
+'struct avfs'. 'struct avfs' is the data structure we use to define a
+module, something like the Linux kernel's super_operations,
+inode_operations, and file_operations put together:
+
+/* from src/avfs.h */
+struct avfs {
+    /* private */
+    struct vmodule *module;
+    avmutex lock;
+    avino_t inoctr;
+
+    /* read-only: */
+    char *name;
+    struct ext_info *exts;
+    void *data;
+    int version;
+    int flags;
+    avdev_t dev;
+
+    void      (*destroy) (struct avfs *avfs);
+    
+    int       (*lookup)  (ventry *ve, const char *name, void **retp);
+    void      (*putent)  (ventry *ve);
+    int       (*copyent) (ventry *ve, void **retp);
+    int       (*getpath) (ventry *ve, char **retp);
+                         
+    int       (*access)  (ventry *ve, int amode);
+    int       (*readlink)(ventry *ve, char **bufp);
+    int       (*symlink) (const char *path, ventry *newve);
+    int       (*unlink)  (ventry *ve);
+    int       (*rmdir)   (ventry *ve);
+    int       (*mknod)   (ventry *ve, avmode_t mode, avdev_t dev);
+    int       (*mkdir)   (ventry *ve, avmode_t mode);
+    int       (*rename)  (ventry *ve, ventry *newve);
+    int       (*link)    (ventry *ve, ventry *newve);
+                         
+    int       (*open)    (ventry *ve, int flags, avmode_t mode, void **retp);
+    int       (*close)   (vfile *vf);
+    avssize_t (*read)    (vfile *vf, char *buf, avsize_t nbyte);
+    avssize_t (*write)   (vfile *vf, const char *buf, avsize_t nbyte);
+    int       (*readdir) (vfile *vf, struct avdirent *buf);
+    int       (*getattr) (vfile *vf, struct avstat *buf, int attrmask);
+    int       (*setattr) (vfile *vf, struct avstat *buf, int attrmask);
+    int       (*truncate)(vfile *vf, avoff_t length);
+    avoff_t   (*lseek)   (vfile *vf, avoff_t offset, int whence);
+};
+
+Notice that each of the three structures has a "void *data" member,
+which is used to store filesystem-specific information. Functions in
+'struct avfs' with a 'void **retp' parameter use 'retp' to return one
+of these pointers - for lookup(), copyent(), and getpath(), *retp will
+be used as the 'data' member of a new ventry; for open() it is put
+into a vfile.data.
+
+Most operations listed above have a corresponding wrapper function
+prefixed with "av_" in 'oper.h' (e.g. av_open for open, av_lseek for
+lseek); when accessing files from other modules, the module writer
+should always use these functions rather than trying to look up the
+method and call it directly. Exceptions are the entry management
+operations putent, copyent, getpath which can be accessed through
+av_copy_ventry, av_free_ventry, and av_generate_path respectively (in
+avfs.h), and the lookup operation which is called recursively by
+av_get_ventry (in internal.h).
+
+  The Object System
+
+Avfs employs a simple system for garbage collection through reference
+counting. 
+
+void      *av_new_obj(avsize_t nbyte, void (*destr)(void *));
+void       av_ref_obj(void *obj);
+void       av_unref_obj(void *obj);
+#define AV_NEW_OBJ(ptr, destr) \
+   ptr = av_new_obj(sizeof(*(ptr)), (void (*)(void *)) destr)
+
+av_new_obj creates a new object with the specified size and
+destructor, and with a reference count of 1. The returned pointer
+addresses a free region at least nbytes long. The reference count and
+destructor are stored immediately before this region in memory.
+av_ref_obj increments the reference counter associated with the given
+block; av_unref_obj decrements the reference counter and calls the
+destructor function when the count reaches 0. Examples of how these
+functions are used can be found throughout the code. The common task
+of allocating memory for a fixed-size data structure can be
+abbreviated by calling the AV_NEW_OBJ macro with the pointer to be
+assigned to and a destructor function; because of this, the function
+av_new_obj is almost never called directly.
+
+Of the data structures which have been introduced so far, only struct
+vfile and struct avfs are allocated as reference-counted objects;
+ventry and avmount are allocated and freed using av_* versions of
+malloc and free (see avfs.h). 
+
+Because the avfs core is used in long-running processes such as
+avfscoda and avfs_server, care must be taken to avoid leaking memory
+in a module by forgetting to decrement a reference or free a pointer.
+
+ Utility libraries
+
+Avfs uses a few internal utility libraries throughout the code. One
+example is a facility for organizing information into a named
+hierarchy, called
+
+  Namespace
+
+Namespace is pretty straightforward. I'll skip over the details since
+they belong in a separate document (which doesn't exist as of this
+moment, but reading the code is easy). The two important data types
+are 'struct entry' and 'struct namespace', both defined opaquely in
+"namespace.h". An empty namespace is created with
+
+struct namespace *av_namespace_new();
+
+'struct entry' has a 'void *data' member which can be accessed with
+
+void av_namespace_set(struct entry *ent, void *data);
+void *av_namespace_get(struct entry *ent);
+
+To look up an entry, use
+
+struct entry *av_namespace_resolve(struct namespace *ns, const char *path);
+
+or
+
+struct entry *av_namespace_lookup(struct namespace *ns, struct entry *parent,
+                                    const char *name);
+
+The first function looks up an absolute path, starting at the root of
+the namespace. The path components are separated with '/'. The second
+function looks up an child entry in the 'parent' entry. If 'name' is
+null, then it returns the parent of 'parent'. When a path or name
+doesn't exist in the namespace, both functions create a new entry and
+return that. As with most functions returning objects, these return an
+entry with an incremented reference count - you are responsible for
+decrementing the reference count when you are done with the returned
+entry. Nothing else inside namespace holds references to entries
+except an entry's own children, so when you unreference a childless
+entry it disappears.
+
+  Cache
+
+This is another semi-important general-use facility in avfs which
+requires some explanation. It manages a cache of files in /tmp. Saying
+"manages" is a bit of a stretch, though, because all the
+responsibility for creating and deleting the files is placed on the
+user. The only thing that 'cache' does is maintain a list of objects.
+These are of the kind described above, typically created with
+AV_NEW_OBJ and carrying a virtual destructor located just before the
+object memory area. With each object is associated a disk usage
+number. Two things must hold for objects used in 'cache': they must be
+unreferenced with av_unref_obj after insertion into the cache (so that
+'cache' holds the only reference to them), and the virtual destructor
+must delete some file on the same filesystem as /tmp, which is the
+same size as reported by the cache object. So even though the 'cache'
+module itself never worries about creating or deleting files, each
+object in its list represents a disk file, and the module can regulate
+disk usage indirectly by unreferencing (and causing the destruction
+of) these objects.
+
+The 'cache' module keeps track of the disk usage of its own objects in
+a global variable, and checks the amount of free space on the
+filesystem containing /tmp whenever the size of a cache object is
+changed or when other avfs modules call av_cache_diskfull(). Whenever
+the amount of free space drops below a certain level, or the space
+used by the cache objects grows above a certain level, 'cache' starts
+deleting objects from its list in least-recently-used order. (These
+levels are configurable through "#avfsstat/cache")
+
+Here is the API (from cache.h):
+
+struct cacheobj *av_cacheobj_new(void *obj, const char *name);
+void *av_cacheobj_get(struct cacheobj *cobj);
+void av_cacheobj_setsize(struct cacheobj *cobj, avoff_t diskusage);
+void av_cache_checkspace();
+void av_cache_diskfull();
+
+Note that the 'cacheobj' object returned by av_cacheobj_new is a
+standard avfs object; as per the convention, it is returned with a 1
+reference count and should only be unreferenced when it is no longer
+needed. This will cause the stored "void* obj" to be deleted.
+
+See remote.c for an example usage - remnode holds a reference to a
+cacheobj (remnode.file); in rem_get_file, av_cacheobj_get is called to
+retrieve a remfile object. At this point the returned object will be
+null if it has been purged, in which case it must be recreated and
+reinserted into the cache.
+
+ Higher-level filesystem libraries
+
+Here I'll touch briefly on four of the higher-level libraries, which
+can simplify implementation of some of the more common types of
+filesystems.
+
+  State
+
+This is the simplest library. It is similar to procfs in linux. To use
+it, you create a namespace with av_state_new and populate that
+namespace with 'statefile' objects, one for each virtual file you want
+to export. Each 'statefile' object has a pair of 'get' and 'set'
+functions which are called when data is read and written,
+respectively, from the corresponding virtual file.
+
+int av_state_new(struct vmodule *module, const char *name,
+                   struct namespace **resp, struct avfs **avfsp);
+
+struct statefile {
+    void *data;
+
+    int   (*get) (struct entry *ent, const char *param, char **resp);
+    int   (*set) (struct entry *ent, const char *param, const char *val);
+};
+
+The 'ent' argument is the entry for the file in your original
+namespace. XXX what is param? 'val' is the value to set; 'resp' holds
+the value retrieved by get().
+
+There is also a shortcut for creating files in /#avfsstat (from
+internal.h):
+
+void av_avfsstat_register(const char *path, struct statefile *func);
+
+  Filter
+
+'filter' lets you create modules which provide access to some
+translation of the data in a file. It is currently only used for
+decompression and compression in the ugzip, gz, ubzip2, bz2, and uz
+modules, but it could be used for simple decryption/encryption and
+other things. Create a module with the following function:
+
+int av_init_filt(struct vmodule *module, int version, const char *name,
+                 const char *prog[], const char *revprog[],
+                 struct ext_info *exts, struct avfs **resp);
+
+'name' is the name of the module. The translation is carried out by an
+external command, which is specified in the 'prog' and 'revprog'
+arguments. 'revprog' is needed to allow writing to the virtual file,
+and should perform the reverse operation of 'prog'. See gz.c for an
+example invocation. (XXX: say more about filter implementation.
+filtprog, serialfile)
+
+  Archive
+
+Used in extfs, uar, urar, utar, and uzip. Provides access to 'archive'
+formats; the result is a virtual directory hierarchy.
+
+I'll just give an overview here because I don't understand much of the
+structure of the code. For details, see e.g. uzip.c. 
+
+To instantiate an archive module, use av_archive_init. This fills in
+most of a 'struct avfs', including all the methods. The avfs.data
+member points to a 'struct archparams', which you are supposed to
+initialize yourself. The methods of this structure define your module.
+They are called by the archive library's own 'struct avfs' methods.
+
+struct archparams {
+    void *data;
+    int flags;
+    int (*parse) (void *data, ventry *ent, struct archive *arch);
+    int (*open) (ventry *ve, struct archfile *fil);
+    int (*close) (struct archfile *fil);
+    avssize_t (*read)  (vfile *vf, char *buf, avsize_t nbyte);
+    void (*release) (struct archive *arch, struct archnode *nod);
+};
+
+The open, close, read, and release methods are optional. Only the
+parse method is required.
+
+'parse' is called when an archive is first used and creates a list of
+all of the file entries in the archive. These are stored internally in
+a 'namespace' object in 'struct archive'. New entries are added by
+obtaining a 'struct entry' with av_arch_create() or av_arch_resolve()
+(archive.h, archutil.c) and then associating with it a node of type 'struct
+archnode' with av_arch_new_node(). Among other things, the 'archnode'
+data structure holds basic stat flags and permissions for the file,
+the byte offset of the file data within the archive, and a 'void*
+data' member which can be used to point to a module-specific data
+structure. This should be filled in by 'parse'. 'void *data' is the
+struct archparams.data member (for your own use); 'ventry *ent' is the
+location of the archive to be parsed; and 'arch' is the (opaque) main
+archive data structure, which is needed by av_arch_create et al.
+
+'read' reads data from a file. The vfile.data member is an archfile:
+
+struct archfile {
+    vfile *basefile;
+    struct archive *arch;
+    struct archnode *nod;
+    struct entry *ent;     /* Only for readdir */
+    struct entry *curr;
+    int currn;
+    void *data;
+};
+
+If the file is stored contiguously starting at its offset in the
+archive, then av_arch_read(), the default value for archparams.read,
+will suffice. The archive library can figure out what to do since the
+file offset has already been stored in the archnode by 'parse'. But if
+the file is compressed (see uzip.c) or sparse (see utar.c), then it
+will need special handling in your module, and you must define a
+custom 'read' method.
+
+'open' and 'close' can be defined if you need to allocate resources or
+special data structures in preparation for reading a file. 'open' is
+called with an archfile after all its fields but 'data' have been
+filled in, at the very end of the open sequence; 'close' is called at
+the beginning of the close sequence before anything has been
+deallocated. Examples can be found in uzip.c.
+
+'release' is called when an archive is no longer being used. It should
+be defined if the 'parse' method allocated resources which need to be
+freed.
+
+  Remote
+
+The remote library is used by the ssh (rsh.c), rsh, ftp, dav, and
+floppy modules. It differs from 'archive' in that the directory tree
+is read one directory at a time (rather than all at once), and files
+are read completely if at all (rather than allowing random access). A
+remote module is defined with the following structure:
+
+struct remote {
+    void *data;
+    char *name;
+    int flags;
+
+    int (*list) (struct remote *rem, struct remdirlist *dl);
+    int (*get) (struct remote *rem, struct remgetparam *gp);
+    int (*wait) (struct remote *rem, void *data, avoff_t end);
+    void (*destroy) (struct remote *rem);
+};
+
+This should be passed to av_remote_init, which will give you a 'struct
+avfs*':
+
+int av_remote_init(struct vmodule *module, struct remote *rem,
+                     struct avfs **resp);
+
+As always, remote.data is for your own use. 'name' is the name of your
+module. XXX define 'flags'. The rest of the fields are methods:
+
+list: obtain a directory listing. It should call av_remote_add to add
+all the entries of dl->hostpath.path on dl->hostpath.host to the
+remdirlist object.
+
+get: start transferring a file. Your implementation should start
+copying a remote file to a temporary file (possibly with
+av_get_tmpfile) and return the name in gp->localname. You should point
+gp->data to an object which will let you find out how much has been
+transferred (so you can implement remote.wait). In addition, this
+object will be unreferenced when the file is no longer needed, so its
+destructor should delete the temporary file.
+
+wait: block until a certain amount of data has been read. The
+'void *data' parameter is from gp->data in remote.get. This function
+should return 1 if the data is ready, 0 if EOF was reached, and -error
+if there was an error. 
+
+destroy: do cleanup. Should call av_free(rem), possibly after freeing
+module-specific data pointed to by rem.data.
+
+THE END

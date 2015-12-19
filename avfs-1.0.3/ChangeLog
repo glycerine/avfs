@@ -1,0 +1,528 @@
+2015-06-13  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* bumped version to 1.0.3
+
+2015-05-10  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* added rar v5 support in extfs urar module.
+	* renamed extfs urar module to uextrar so internal urar and
+	external module can be used simultaneously.
+
+2015-03-08  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed zlib state saving/restoring when a Huffman tree is not a
+	dynamic one. This fixes an assertion triggered by some rare cases
+	when accessing zip'ed content. Triggering the assertion did also
+	depend on the block size when reading content.
+
+2015-02-04  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* changed info.h dependency for out-of-src builds
+	* changed configure to allow forcing to build with fuse and/or
+	liblzma support
+
+2014-06-19  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* uzip: added support for zip64 format. Allows more than 64k files
+	per archive and files larger than 4 GiB.
+
+2014-02-23  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* extfs: updated some scripts to not require bash (patch from
+	Michael Meskes)
+
+	* ucftp: unregistered lseek to avoid some problems (like cat not
+	working)
+
+2014-02-05  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* utar: handle extended header so there will be no PaxHeaders files
+
+2013-05-11  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* utar: added support for files larger than 8GB in archives.
+
+2013-05-09  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed some 32bit overflows for archive, utar, and state
+	module. It prevented accessing large files.
+
+2012-06-11  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* removed recursive locks and made other changes so it compiles on Mac OS
+	* fixed number of hard links counter for extfs directories (find
+	would skip some subdirectories)
+	* bumped version to 1.0.1
+
+2011-07-01  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed race condition in namespace module.
+	* added patch which can be used for testing with valgrind.
+
+2010-10-05  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* bumped version to 0.9.9
+
+2010-09-28  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* registered .lzma for uxze module
+
+2010-09-27  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* udar: handled h and r entries as regular files
+
+2010-09-23  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* bumped library revision to 2
+
+2010-09-21  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* updated internal bzlib to 1.0.6 to fix security bug
+
+2010-09-16  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* extfs: updated existing and added some new extfs handler
+	* fixed typo in extfs.ini
+	* fixed typo in modules/Makefile.am
+	* fixed typo in extfs/Makefile.am
+	* updated gitignore file
+
+2010-09-12  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* ucftp: added ucftp module for uncached ftp support with read and
+	write
+	* avfsd: added avfsd_create function for fuse
+	* mountavfs: changed mountavfs to also check AVFSBASE env var and
+	to create the base directory $HOME/.avfs
+
+
+2010-08-30  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* ftp: fixed crash when password file is empty
+
+2010-08-22  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* utar: disabled warning about empty file names, it happens for
+	archives create with . as base directory
+
+2010-07-10  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* simplified modules/Makefile.am for dav conditional
+
+2010-07-10  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* added xz filter module uxze
+
+2010-07-09  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* changed AV_VER to be replaced with NUMVERSION from configure
+	script
+
+2010-07-09  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* added some m4 macros in configure.in to handle version number
+
+2010-07-08  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed wrong conditional for liblzma
+	* fixed compilation of xzread
+
+2010-07-08  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* set m4 macros directory in configure.in
+
+2010-07-07  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* added pkg.m4 from pkg-config to macros
+	* added macros directory makefile.am
+	* also build bzip2 package when creating a distribution
+
+2010-03-10  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* added support for liblzma (xz files)
+
+2010-03-04  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* forgotten to remove old bzread.c version and add new one
+
+2010-03-04  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* patch/avfs-bzlib-1.0.5-changes.diff, patch/avfs-zlib-1.1.4-changes.diff:
+	added zlib and bzlib patch for reference
+
+	* bzlib/blocksort.c, bzlib/bzlib.c, bzlib/bzlib.h, bzlib/bzlib_private.h, bzlib/compress.c, bzlib/crctable.c, bzlib/decompress.c, bzlib/huffman.c, bzlib/randtable.c:
+	updated bzlib to 1.0.5
+
+	* bzlib/Makefile.am, configure.in, lib/Makefile.am, src/Makefile.am:
+	updated bz2 support to be able to use system library
+
+	* bzlib/Makefile.am, src/Makefile.am:
+	moved bzread.c into src directory just like zread.c
+
+	* src/Makefile.am, src/zread.c, zlib/Makefile.am, lib/Makefile.am, configure.in:
+	added configure option to use system zlib
+
+2010-02-12  Miklos Szeredi <miklos@szeredi.hu>
+
+	* Fix a couple of compiler warnings
+
+2010-02-05  Miklos Szeredi <miklos@szeredi.hu>
+
+	* It is unnecessary to save state on EOF for zip/gzip files
+
+2010-02-05  Miklos Szeredi <miklos@szeredi.hu>
+
+	* Ignore "g" type tar headers.
+
+	* Make "du" on gzip files show the disk usage of the underlying
+	file
+
+2009-06-03  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fuse/avfsd.c, NEWS: fixed race condition in avfsd
+
+2007-05-31  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* configure.in:
+	missing or too old fuse is no longer an error in the configure script
+
+2007-05-30  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* NEWS: updated
+
+	* extfs/ulha.in, extfs/u7z.in:
+	fixed trap in some extfs scripts to use single quoted command
+
+	* configure.in: added fuse test using pkg-config
+
+2007-05-23  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* spec/Makefile.am, spec/avfsfuse-fc6.spec:
+	added RPM spec file for avfs-fuse (from Tanmoy Bhattacharya)
+
+	* extfs/rpm, extfs/trpm:
+	changed rpm and trpm extfs scripts to output correct file sizes
+	  (patch from Tanmoy Bhattacharya)
+
+2007-05-14  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* NEWS: updated
+
+	* zlib/inftrees.c, bzlib/bzread.c, modules/ugz.c, modules/urar.c, src/zread.c:
+	fixed some compiler warnings
+
+	* modules/utar.c:
+	the last byte of the name field in the tar header is no longer overwritten by
+	a null byte, the name field is not necessarily null-terminated
+	support for POSIX ustar long file names (prefix/name)
+
+	* src/zread.c:
+	the eof flag is also stored in zlib streamcache so seeking back from the end
+	of the file works correctly
+
+	* src/Makefile.am: changed utils.c dependency
+
+2007-05-07  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed ucpio to to use default cat command if file ending doesn't match
+	and the cpio option -c is not used when unpacking the archive
+
+	* fixed bug in extfs symlink handling, it was possible that hardlinks were
+	created instead of symlinks (triggered by ftplist and lslR)
+	(patch from Tanmoy Bhattacharya)
+
+	* fixed ftplist to output symlink to /#ftp... and to also support http and
+	ssh handlers
+	(patch from Tanmoy Bhattacharya)
+
+	* added some more directories to test for avfsstat in ftppass/davpass
+	(patch from Tanmoy Bhattacharya)
+
+	* only install avfscoda.el if avfscoda is built
+
+	* fixed typo in README
+
+	* ftp module: search for last @ in username/host so @ in username
+	are supported
+
+	* changed configure script to always build library and additionally
+	fuse/avfscoda/preload depending on the actual system
+
+2007-05-02  Miklos Szeredi <miklos@szeredi.hu>
+
+	* Update avfsd to use fuse API version 26.  Fixes bug where
+	access(2) would report a file writable, but opening the file for
+	write would be denied.	Reported by Giuseppe Bilotta
+
+2007-03-11  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed extfs deadlock
+
+	* bumped version to 0.9.8
+
+2007-01-24  Miklos Szeredi <miklos@szeredi.hu>
+
+	* Fix re-reading bzipped files.	 Reported by Andrew Collier
+
+2006-11-27  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed crash in save/restore of an inflate state when fixed trees are
+	used
+
+	* updated bzlib to version 1.0.3
+
+2006-06-14  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* Updated NEWS and AUTHORS
+
+	* Added missing include in extfs module
+
+2006-06-06  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* Set fuse_build to no in configure.in if fuse is not found
+
+2006-06-05  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* Added configure.in hack to always set _FILE_OFFSET_BITS because
+	fuse requires this even on 64bit archs
+
+2006-05-16  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* Updated documentation
+
+	* Bumped version to 0.9.7
+
+2006-04-05  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* Extended cache to supply an interface similar to filecache
+
+	* Used new cache interface in extfs to store tmpfiles
+
+	* Fixed invisible hidden files for iso9660
+
+	* Added extfs support for 7zip
+
+	* Added installation prefix output in configure script
+
+	* Fuse daemon can now be installed with --enable-fuse
+
+	* Added symlink rewriting to make absolute symlinks relative
+
+	* Added avfsstat interface to toggle this symlink rewrite
+
+	* Added parsing of iso date format in parsels
+
+2006-02-21  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* urar module uses unrar in case of missing rar (based on patch by Mark)
+
+2006-02-06  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* Fixed segfault when using open on base archives (same bug as for
+	extfs)
+
+2006-02-05  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* Changed ftp module to use "LIST -al" instead of "LIST -an" to
+	support ftp servers which don't allow the "-an" argument
+
+	* The configure script will output some configuration details
+
+2006-01-30  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* Fixed segfault in extfs when using open on base archive
+	(e.g., open("test.lha#") )
+
+	* Integrated two patches from the patched avfs version from Zemljanka
+	Commander team (http://sourceforge.net/projects/zemljanka). There was
+	one bug in virt_link and one bug when getting ftp files from the root
+	directory.
+
+	* av_parse_ls uses now atoll() to parse file size (if available).
+	The ftp module can now supports files larger than 2GB.
+
+	* Fixed bug in the ulha extfs module which had problems with file
+	names containing spaces
+
+	*  Updated the other extfs modules to the current mc-4.6.1 versions
+
+2006-01-02  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* Utar module should be able to handle >2G files.  Report from
+	Pete
+
+2005-07-16  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed urar module: The CRC calculation now also takes optional
+	header entries of newer rar versions into account
+
+2005-07-15  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* updated dos date parsing in parsels.c to handle years with more than
+	3 digits (from mc-4.6.1-pre1). patchfs from extfs output such dates
+
+2005-07-13  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed return value of local_close
+
+2005-06-20  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* updated docs
+
+2005-06-19  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* fixed cache handling: When setting a new size for a cache entry,
+	the entry is not removed even if it is larger than the cache
+	limit.
+
+	* updated extfs handlers (from mc-4.6.1-pre1)
+
+2005-06-13  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* changed build system to automake which should improve
+	portability.  At least the shared (or static) library should build
+	on any system.	The other targets still only works on Solaris
+	(for preload) and Linux kernel 2.2 and 2.4 (for avfscoda)
+
+	* fixes to allow compilation on AIX
+
+2005-06-08  Ralf Hoffmann <ralf@boomerangsworld.de>
+
+	* magic character in filenames is supported without escaping
+
+	* fix in bzlib to prevent endless loop in corrupt archives
+
+	* change inode calculation in state.c to prevent inode numbers 0
+	and 1
+
+2004-03-07  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* Don't lowercase zipfiles with MSDOS filetype
+
+2004-01-09  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* Configure target selection fix
+
+2004-01-05  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	*  Applied FreeBSD support patch by Mikulas Patocka
+
+2003-12-09  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	*  Don't include DAV by default
+
+2003-12-08  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	*  Shared library fix by Miroslav Spousta
+
+2003-05-08  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* avfs-config and logging improvements by Daniel Koukola
+
+2003-04-28  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* Added shared lib build and fixes by Daniel Koukola
+
+2003-04-14  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* Added API documentation by Frederik Eaton 
+
+2002-12-05  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* 64 bit file offset fixes
+
+	* Gunzip (#ugz) speed improvement: CRC is checked only once
+
+2002-12-03  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* Upgraded to zlib 1.1.4
+
+	* Added .ear and .war extensions to the uzip handler
+
+	* Check for large-file support
+
+2002-11-18  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* Fixed bug in runprog, which leaked file descriptors in extfs.
+
+	* Added /etc/init.d/avfscoda improvements by David Hanak
+
+	* Top level makefile fix: 'install' target now depends on 'all'
+
+2002-01-17  Miklos Szeredi <mszeredi@inf.bme.hu>
+
+	* Started merging Frederik Eaton's stuff: spelling fixes, comments
+	and logging to stderr.
+
+Changes from 0.9.1 to 0.9.3
+
+	* Fixed PT_DTRACE bug in redir.c
+
+	* Removed nredir cruft
+
+	* Configure now accepts kernel source directory argument
+
+	* redir.c now includes modversions.h
+
+	* Fix bug in virt_readdir
+
+	* Fix redir compilation so it finds the apropriate kernel headers
+
+	* Fix redir module license tag
+
+	* Emacs tweak installed in /etc/emacs/site-start.d so that
+	ange-ftp doesn't steal files beginning with '#'. This does not
+	affect the operaton of ange-ftp
+
+	* Better cross compilation support
+
+	* Ported to Compaq IPAQ (still needs better cache handling)
+
+	* Fix truncation code in cache state (/#avfsstat/cache/*)
+
+	* Support free space handling on filesystems not supporting disk
+	usage and disk free information (e.g. ramfs)
+
+Changes from 0.9.0 to 0.9.1
+
+	* Make preload compile on linux (does not work yet) (Frederik Eaton)
+
+	* Fix bug in module loader (Frederik Eaton)
+
+	* The magic char (#) is escaped when reading a virtual directory
+
+	* Avfscoda correctly returns error codes when reading a file or a
+	directory
+
+	* Fixed bug in virt_open(), to actually return the file descriptor
+	instead of zero. This fixes bad behaivor of avfscoda under heavier
+	load.
+
+	* Commented out HAVE_FIFO_BUG define in child.c. If you have a
+	very old kernel, you need to uncomment this.
+
+	* Avfscoda uses hash table for lookups. This improves performance
+	for large directories.
+
+	* Namespace uses hash table for lookups. This improves performance
+	for large directories.	TODO: current namespace implementation
+	doesn't honor the NSF_NOCASE flag.
+
+	* Removed buggy 'mkdir' from redir.c
+
+	* Added execve (only for ix86) to redir.c
+
+	* Fixed deadlock in bzip2 handling
+
+	* Utar (and archive) now correctly handle open/read/close for
+	auto-directories
+
+	* Preload is now working on Solaris 2.5 (thanks to Richard Curnow)
+
+	* Fix bug in archive, for multiple opens on same file
+
+	* Archive now handles gracefully the case when file type is
+	symlink, but linkname is not filled in by handler. TODO: Handle
+	symlinks in zipfiles
+
+	* Handle archives which have '.' or '..' in their internal paths.

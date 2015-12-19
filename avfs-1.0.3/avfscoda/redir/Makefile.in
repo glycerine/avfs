@@ -1,0 +1,27 @@
+SHELL = /bin/sh
+
+kmoduledir = @kmoduledir@
+i_kmoduledir = $(DESTDIR)$(kmoduledir)
+
+CC = @CC@
+
+CFLAGS = -O2 -Wall -Wstrict-prototypes -fno-strict-aliasing -pipe
+CPPFLAGS = -I@KERNINCLUDE@ -D__KERNEL__ -DMODULE -D_LOOSE_KERNEL_NAMES
+
+INSTALL = @INSTALL@
+
+all: redir.o
+
+clean:
+	rm -f core core.* *.o .*.o *.s *.a *~ 
+
+.c.o:
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
+
+install: all
+	@../../mkinstalldirs $(i_kmoduledir)
+	$(INSTALL) -m 644 redir.o $(i_kmoduledir)/redir.o
+	/sbin/depmod -a
+
+uninstall:
+	rm -f $(i_kmoduledir)/redir.o

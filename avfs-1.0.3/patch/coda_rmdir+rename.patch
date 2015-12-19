@@ -1,0 +1,27 @@
+diff -ru /tmp/linux/linux/fs/coda/dir.c linux/fs/coda/dir.c
+--- /tmp/linux/linux/fs/coda/dir.c	Mon Oct 16 21:58:51 2000
++++ linux/fs/coda/dir.c	Fri Nov 10 14:51:34 2000
+@@ -459,8 +459,7 @@
+         }
+ 
+ 	coda_dir_changed(dir, -1);
+-	de->d_inode->i_nlink--;
+-	d_delete(de);
++	de->d_inode->i_nlink = 0;
+ 
+         return 0;
+ }
+@@ -490,8 +489,12 @@
+ 
+         if ( !error ) {
+ 		if ( new_dentry->d_inode ) {
+-			if ( S_ISDIR(new_dentry->d_inode->i_mode) )
++			if ( S_ISDIR(new_dentry->d_inode->i_mode) ) {
+                         	link_adjust = 1;
++				new_dentry->d_inode->i_nlink = 0;
++			}
++			else
++				new_dentry->d_inode->i_nlink--;
+ 
+                         coda_dir_changed(old_dir, -link_adjust);
+                         coda_dir_changed(new_dir,  link_adjust);

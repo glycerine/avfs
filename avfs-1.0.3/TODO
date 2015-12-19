@@ -1,0 +1,41 @@
+Write support for:
+  - ftp
+  - floppy
+  - dav
+  - ugz
+  - ubz2
+  - utar
+
+Flush file caches
+
+uzip - symlinks
+ucpio - builtin
+option for uzip, not to convert filenames to lowercase
+
+automatic handler detection based on extension AND content
+
+Redir should support operations:
+  - open(..., O_CREAT, ...)
+  - creat
+  - truncate
+  - utime
+  - chmod
+  - chown
+  - lchown
+  - unlink
+  - rmdir
+  - mkdir
+  - mknod
+  - symlink
+  - rename
+  - link
+
+Redir can't support following symlinks to virtual files. Find better solution
+
+Avfscoda:
+  - Clean soloution to file access permissions
+  - Faster random access to files (at least streaming access)
+
+Preload:
+  - remember cwd after exec
+  - add missing operations

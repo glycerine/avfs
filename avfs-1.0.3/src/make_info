@@ -1,0 +1,13 @@
+#! /bin/sh
+
+compile_date=\"`date`\"
+compile_system=\"`uname -srm`\"
+moduledir=\"$1\"
+
+echo "/* This file was generated automatically by 'make_info' */"
+echo
+echo "#define MODULE_DIR $moduledir"
+echo "#define COMPILE_DATE $compile_date"
+echo "#define COMPILE_SYSTEM $compile_system"
+echo
+echo "/* End of file */"

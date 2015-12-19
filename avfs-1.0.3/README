@@ -1,0 +1,285 @@
+What Is AVFS
+------------
+
+AVFS is a system, which enables all programs to look inside archived
+or compressed files, or access remote files without recompiling the
+programs or changing the kernel.
+
+At the moment it supports floppies, tar and gzip files, zip, bzip2, ar
+and rar files, ftp sessions, http, webdav, rsh/rcp, ssh/scp. Quite a
+few other handlers are implemented with the Midnight Commander's
+external FS.
+
+AVFS is (C) under the GNU GPL (see the file COPYING). The shared
+library supporting AVFS with LD_PRELOAD is (C) under the GNU LGPL (see
+the file COPYING.LIB).
+
+AVFS comes with ABSOLUTELY NO WARRANTY, for details see the file COPYING. 
+
+Where Is The Latest Version
+---------------------------
+
+Check out the page
+
+  http://www.inf.bme.hu/~mszeredi/avfs/
+
+or
+
+  http://sourceforge.net/projects/avf
+
+Forms of AVFS
+-------------
+
+AVFS can now be installed in four different ways. These are:
+
+ - Fuse
+ 	With fuse support, systems with 2.6 kernels are able to use avfs.
+	The requirements are 
+	1) fuse support be compiled into the kernel or fuse modules 
+	   loaded.
+	2) the fuse package and library >= 2.4 be installed.
+	
+ - Avfscoda 
+        This method in theory works on any Linux system which has the
+        'coda' filesystem compiled in the kernel or as a kernel module.
+
+        In practice it works best with glibc-6.1 or higher, and it has
+        been tested on 2.2.X and 2.4.X kernels. It currently does not
+        work on 2.6.X kernels.
+
+ - Preload
+        Currently this works on solaris systems. There are problems
+        making the preload method work for GLIBC version 6.1 or
+        higher, so systems using GLIBC are not supported.
+
+ - Library
+        AVFS can be used as a shared library for programs written to
+        utilize AVFS. This is a pure userspace library so it should
+        work on any POSIX system.
+
+Using AVFS is very similar in all cases. Differences will be indicated.
+
+The installation method is different. For installation instructions
+see the files 'INSTALL.fuse', 'INSTALL.avfscoda', 'INSTALL.preload',
+and 'INSTALL.library' respectively all located in the doc/ directory.
+
+Using AVFS
+----------
+
+These instructions are not for the fuse installation. Please see the file
+README.avfs-fuse for details on how these commands are applied.
+
+It is quite simple, you just do everything with the virtual files, as
+you would do with real files. Here are some examples:
+
+Listing a tar archive:
+
+  ls -l avfs-0.9.1.tgz#/
+  ls -l avfs-0.9.1.tgz#/avfs-0.9.1/
+
+Obtaining information about avfs itself:
+
+  cat /#avfsstat/copyright      - prints copyright information and version
+  cat /#avfsstat/modules        - lists available handlers
+  cat /#avfsstat/version        - prints version information
+
+'cd' into an archive:
+  (For the 'preload' method the shell itself must be started with
+   avfs)
+
+  cd avfs-0.9.1.tgz#/
+  less avfs-0.9.1/README
+
+Some more examples: (these are all shell commands, but of course you
+could use any program: file manager, browser, editor, etc.)
+
+Unpacking an archive:
+
+  cp -a tarfile.tgz#/dir .
+  cp -a zipfile.zip#/* .
+
+  (For the 'preload' method, using '*' means that the shell must be
+   started with AVFS)
+
+Creating an archive:
+
+  mkdir tarfile.tgz#+  
+  cp -a dir tarfile.tgz#+/
+
+  Note: The efficiency of this method is not yet the same as the
+  'normal' archive creation method, but it should not be more than 2
+  times slower.
+
+NOTES:
+
+1) ('preload' only) Input and output redirection to/from virtual files
+   does not work, since, in the 'preload' method, virtual file
+   descriptors cannot be kept open over exec(). This is not a problem
+   with the 'avfscoda' method. 
+
+   E.g. you can't do
+           patch -p0 < patchfile.gz#
+
+   only
+           cat patchfile.gz# | patch -p0
+
+
+If something doesn't work, then check the section 'Common Problems'.
+
+
+Format of an AVFS Path
+----------------------
+
+(For a full explanation of the format see the file FORMAT)
+
+As you've seen, the '#' magic character makes a virtual file or
+directory from an ordinary file. Actually this is just a shorthand for
+the full specification of an AVFS path:
+
+  'tarfile.tgz#' is the same as 'tarfile.tgz#ugz#utar'
+
+Note, the short version will only work if the file-extension is
+recognized (most are), but you can always tell exactly what should be
+done with the file by using the second method.
+
+There are handlers which do not have a "base" file. The following
+handlers are like this: floppy, ftp, rsh, ssh, http, dav, avfsstat,
+volatile, rpms, ucftp.
+
+Examples
+
+  /#floppy:a                                 - a: drive
+  /#a                                        - a: drive (alias for /#floppy:a)
+  /#rsh:otherhost/foo/bar                    - /foo/bar on 'otherhost'
+  /#ssh:user@host/dir                        - /dir on 'host', login as 'user'
+  /#ftp:ftp.funet.fi/pub/Linux               - anonymous ftp 
+  /#ftp:user@host.domain.org/home/xyz/file   - ftp with username 'user'
+  /#ftp_ctl:user@host.domain.org/password    - write the password to this file
+                                        (ftppass is a nice utility for this)
+  /#http:www.inf.bme.hu|~mszeredi|avfs|      - homepage of AVFS
+  /#http:ftp:||ftp.funet.fi|pub|Linux        - use HTTP to get an ftp URL
+                                        (useful if you use a HTTP-only proxy)
+
+The environment variable 'http_proxy' is used to set the default value
+of the proxy server. You can also set it's value by writing to the file
+
+   /#avfsstat/http_proxy
+
+
+The following "handlers" are available now:
+
+  name of handler    type of operation      notes
+  ---------------    -----------------      -----
+  #a                 first floppy drive     alias for #floppy:a
+  #avfsstat          meta information       builtin
+  #bz2               bzip2                  uses bzip2
+  #dav               webdav                 builtin
+  #dav_ctl           control dav sessions   
+  #floppy            floppy                 uses mtools (mdir, mcopy, ...)
+  #ftp               ftp                    builtin
+  #ftp_ctl           control ftp sessions   
+  #gz                gzip                   uses gzip
+  #iso9660           CD/DVD filesystem      no need to use mount -t iso9660!
+  #local             local filesysem        only for internal use
+  #rsh               rsh/rcp                only works if rsh needs no password
+  #ssh               ssh/scp                only works if ssh needs no password
+  #uar               un-ar                  builtin
+  #ubz2              bunzip2                builtin
+  #ubzip2            bunzip2                uses bzip2
+  #ucftp             ftp                    builtin (write support, no file cache)
+  #ucftp_ctl         control ftp sessions   
+  #ugz               gunzip                 builtin (1)
+  #ugzip             gunzip                 uses gzip
+  #urar              unrar                  builtin list + uses rar to extract
+  #utar              untar                  builtin
+  #uxz               unxz/unlzma            builtin
+  #uxze              unxz/unlzma            uses xz
+  #uz                uncompress             uses gzip
+  #uzip              unzip                  builtin
+  #volatile          'memory fs'            mainly for testing
+  
+
+(1) With the '-s' option (blala.gz#-s) the gunzip module will use the
+size stored at the end of the gzip file.  This will make some
+operations on a .gz file much faster, but it isn't usable for huge
+(>=4GByte) files, since the size is stored in 32 bits :(.
+
+The following handlers are available through Midnight Commanders
+'extfs'. These were not written by me, and could contain security
+holes. Nonetheless some of them are quite useful.  For documentation
+on these, see the files in /usr/lib/avfs/extfs.
+
+  name of handler    type of operation
+  ---------------    -----------------
+  #deb               debian packages
+  #ftplist           ?
+  #hp48              ?
+  #lslR              directory tree listings
+  #mailfs            ? 
+  #patchfs           browse patch files
+  #rpm               rpm packages
+  #rpms              List of installed rpms
+  #trpm              Useful inside #rpms
+  #ucpio             cpio archives
+  #ulha              lha archives
+  #uzoo              zoo archives
+
+
+Writing new modules
+-------------------
+
+You want to write a handler module for XY? Great! Please contact me,
+and I can give you some advice regarding this.
+
+Credits
+-------
+
+David Hanak (dhanak@inf.bme.hu) has contibuted the "rar" and the
+"archive" modules, and lots of ideas to AVFS.
+
+The VFS in Midnight Commander, written by Jakub Jelinek and Miguel de
+Icaza <miguel@nuclecu.unam.mx>, has greatly helped me write this
+library, and will probably continue to do so in the future.
+
+Pavel Machek, who is the current maintainer of Midnight VFS, and who
+has contributed lots of ideas and the alien module (which
+unfortunately I did not have time to get into shape) to AVFS.  The
+'avfscoda' solution grew out of Pavels 'podfuk'. Most of it has been
+changed, but the original idea is from Pavel.
+
+Justin Mason <jm-avfs@jmason.org> contributed the dav module.
+
+Koblinger Egmont <egmont@fazekas.hu> has written the "recursive
+profile" scripts, set up the mailing list, and also sent me many good
+ideas.
+
+The zip and gzip file handler is based on the zlib compression and
+decompression library, written by Jean-loup Gailly and Mark Adler.
+
+The bzip2 handler uses the libbzip2 library written by Julian R
+Seward.
+
+The tar file handler is based on the GNU tar source, originally
+written by John Gilmore.
+
+People, who sent me ideas or bug-reports:
+  Jan Niehusmann <jan@gondor.com>
+  Demon of the Known Universe <psycho@dodds.net>
+  Duncan Pierce <cmrdrp@soc.staffs.ac.uk>
+  Scott F. Johnston <scott@fleetingimage.com>
+  Larry Riedel <larry@riedel.org>
+
+The Future
+----------
+
+I hope AVFS will grow up to be a standard virtual file library, for which
+people can write handler modules (or plugins, if you like) for whatever
+they want. 
+
+If you think AVFS is a good idea, and you have any comments or suggestions,
+please send me an email about them.
+
+Have fun,
+
+Miklos Szeredi <miklos@szeredi.hu>
+

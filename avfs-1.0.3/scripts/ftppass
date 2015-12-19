@@ -1,0 +1,42 @@
+#! /bin/sh
+
+if test -z "$1" ; then
+  echo "usage: $0 username@[hostname]" 1>&2
+  exit 1
+fi
+
+userhost=$1
+
+
+if test -r "$AVFSBASE/#avfsstat" ; then
+  basedir="$AVFSBASE"
+elif test -r "$HOME/.avfs/#avfsstat" ; then
+  basedir="$HOME/.avfs"
+elif test -r "/#avfsstat" ; then
+  basedir=
+elif test -r "/overlay/#avfsstat" ; then
+  basedir=/overlay
+else
+  echo "AVFS not running" 1>&2
+  exit 1
+fi
+
+ctrlc () {
+  stty $oldsetting
+  echo
+  exit 127
+}
+
+oldsetting=`stty -g`
+printf "Password: "
+trap ctrlc 2 3 15
+stty -echo
+read passwd < /dev/tty
+stty $oldsetting
+echo
+
+echo $passwd | cp /dev/stdin $basedir/#ftp_ctl:$userhost/password
+
+if [ -e "$basedir/#ucftp_ctl" ]; then
+    echo $passwd | cp /dev/stdin $basedir/#ucftp_ctl:$userhost/password
+fi

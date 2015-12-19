@@ -1,0 +1,79 @@
+#! /bin/sh
+
+# Description:
+# This is a parser for Amiga ADF disk images in Midnight Commander. You 
+# need the GPL unADF program (part of ADFlib >= 0.7.9b) written by Laurent 
+# Clevy and Dan Sutherland.
+
+# Author: Guus Jansman
+
+# Limitations:
+# Some files seem to have a description. These are not handled (yet).
+# Files can only be added as root (under Linux only so disabled now).
+# File attributes are not preserved.
+
+# Alternative programs (not supported by this script):
+# AdfOpus (win32, Dan Sutherland and Gary Harris)
+# readdisk (part of UAE)
+
+# Settings:
+UNADF="unadf"
+
+mcadffs_list ()
+{
+    $UNADF -lr "$1" 2>/dev/null | gawk -v uid=$(id -ru) '
+    BEGIN { date="JanFebMarAprMayJunJulAugSepOctNovDec" }
+    /^$/ { next }
+    /^unADF/ { next }
+    /^compsum/ { next }
+    /^Device/ { next }
+    /^Volume/ { next }
+    /^Warning/ { next }
+    {
+        slashpos=index($0, "/")
+        str=substr($0, slashpos+18)
+        if (substr(str, length(str)) == "/")
+        {
+            perm="drwxr-xr-x"
+            str=substr(str, 1, length(str)-1)
+			sz=0
+        }
+        else
+        {
+            perm="-rw-r--r--"
+			sz=substr($0, 1, slashpos-5)
+        }
+        tm=substr($0, slashpos+8, 5)
+        dt=substr($0, slashpos-4, 10)
+        split(dt, a, "/")
+        printf "%s    1 %-8d %-8d %8d %3s %2d %4d %s %s\n", perm, uid, 0, sz, substr(date, (a[2]-1)*3+1, 3), a[3], a[1], tm, str
+    }'
+}
+
+mcadffs_copyout ()
+{
+    $UNADF -p "$1" "$2" > "$3" 2>/dev/null
+}
+
+mcadffs_test ()
+{
+    if $UNADF -l "$1" >/dev/null 2>&1; then
+        echo "OK"
+    else
+        echo "UNKNOWN"
+    fi
+}
+
+umask 077
+
+cmd=$1
+shift
+case "$cmd" in
+    list)    mcadffs_list    "$@" ;;
+    copyout) mcadffs_copyout "$@" ;;
+#    copyin)  mcadffs_copyin  "$@" ;;        # Can only be performed as root
+#    rm)      mcadffs_rm      "$@" ;;        # Can only be performed as root
+#    test)    mcadffs_test    "$@" ;;        # Not supported by MC extfs
+    *)       exit 1 ;;
+esac
+exit 0

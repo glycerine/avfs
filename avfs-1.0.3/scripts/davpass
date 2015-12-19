@@ -1,0 +1,77 @@
+#! /bin/sh
+
+usage () {
+  echo "davpass [-r 'realm'] [-h hostname] [-u username] [-p passwd]" 1>&2
+  exit 1
+}
+
+while [ $# -gt 0 ] ; do
+  case "x$1" in
+    x-r )
+      realm="$2"; shift; continue
+      ;;
+    x-h )
+      host="$2"; shift; continue
+      ;;
+    x-u )
+      username="$2"; shift; continue
+      ;;
+    x-p )
+      passwd="$2"; shift; continue
+      ;;
+    * )
+      usage
+      ;;
+  esac
+  shift
+done
+
+if test -r "$AVFSBASE/#avfsstat" ; then
+  basedir="$AVFSBASE"
+elif test -r "$HOME/.avfs/#avfsstat" ; then
+  basedir="$HOME/.avfs"
+elif test -r "/#avfsstat" ; then
+  basedir=
+elif test -r "/overlay/#avfsstat" ; then
+  basedir=/overlay
+else
+  echo "AVFS not running" 1>&2
+  exit 1
+fi
+    
+ctrlc () {
+  stty echo
+  exit 127
+}
+
+if [ "${host:-//UNSET//}" = //UNSET// ] ; then
+  printf "Hostname: "
+  read host < /dev/tty
+fi
+
+if [ "${realm:-//UNSET//}" = //UNSET// ] ; then
+  printf "Realm (hit enter for any realm): "
+  read realm < /dev/tty
+fi
+
+if [ "${username:-//UNSET//}" = //UNSET// ] ; then
+  printf "Username: "
+  read username < /dev/tty
+fi
+
+if [ "${passwd:-//UNSET//}" = //UNSET// ] ; then
+  printf "Password: "
+  trap ctrlc 2 3 15
+  stty -echo
+  read passwd < /dev/tty
+  stty echo
+fi
+echo
+
+acct="$host@$realm"
+
+if [ "$acct" = @ ] ; then usage; fi
+
+echo $username | cp /dev/stdin $basedir/#dav_ctl:$acct/username
+echo $passwd | cp /dev/stdin $basedir/#dav_ctl:$acct/password
+

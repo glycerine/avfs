@@ -1,0 +1,270 @@
+diff -ruN /tmp/linux/fs/namei.c linux/fs/namei.c
+--- /tmp/linux/fs/namei.c	Fri Dec 29 23:07:23 2000
++++ linux/fs/namei.c	Tue Jan 30 16:02:37 2001
+@@ -99,6 +99,9 @@
+  * XEmacs seems to be relying on it...
+  */
+ 
++/* lookup function for "virtual" files */ 
++struct dentry *(*lookup_virtual)(struct nameidata *, struct dentry *);
++
+ /* In order to reduce some races, while at the same time doing additional
+  * checking and hopefully speeding things up, we copy filenames to the
+  * kernel data space before using them..
+@@ -265,9 +268,10 @@
+  * make sure that nobody added the entry to the dcache in the meantime..
+  * SMP-safe
+  */
+-static struct dentry * real_lookup(struct dentry * parent, struct qstr * name, int flags)
++static struct dentry * real_lookup(struct nameidata * nd, struct qstr * name, int flags)
+ {
+ 	struct dentry * result;
++	struct dentry *parent = nd->dentry;
+ 	struct inode *dir = parent->d_inode;
+ 
+ 	down(&dir->i_sem);
+@@ -286,12 +290,24 @@
+ 			lock_kernel();
+ 			result = dir->i_op->lookup(dir, dentry);
+ 			unlock_kernel();
+-			if (result)
++			if (result) {
+ 				dput(dentry);
+-			else
++				up(&dir->i_sem);
++			}
++			else {
++				up(&dir->i_sem);
+ 				result = dentry;
+-		}
+-		up(&dir->i_sem);
++				/* 
++				 * If the dentry is negative it might
++				 * refer to a 'virtual' file 
++				 */
++				if (lookup_virtual && !dentry->d_inode)
++					lookup_virtual(nd, dentry);
++			}
++		}
++		else
++			up(&dir->i_sem);
++		
+ 		return result;
+ 	}
+ 
+@@ -494,7 +510,7 @@
+ 		/* This does the actual lookups.. */
+ 		dentry = cached_lookup(nd->dentry, &this, LOOKUP_CONTINUE);
+ 		if (!dentry) {
+-			dentry = real_lookup(nd->dentry, &this, LOOKUP_CONTINUE);
++			dentry = real_lookup(nd, &this, LOOKUP_CONTINUE);
+ 			err = PTR_ERR(dentry);
+ 			if (IS_ERR(dentry))
+ 				break;
+@@ -557,7 +573,7 @@
+ 		}
+ 		dentry = cached_lookup(nd->dentry, &this, 0);
+ 		if (!dentry) {
+-			dentry = real_lookup(nd->dentry, &this, 0);
++			dentry = real_lookup(nd, &this, 0);
+ 			err = PTR_ERR(dentry);
+ 			if (IS_ERR(dentry))
+ 				break;
+diff -ruN /tmp/linux/fs/super.c linux/fs/super.c
+--- /tmp/linux/fs/super.c	Tue Jan 30 15:57:40 2001
++++ linux/fs/super.c	Tue Jan 30 16:02:37 2001
+@@ -47,7 +47,7 @@
+  * unmounting a filesystem and re-mounting it (or something
+  * else).
+  */
+-static DECLARE_MUTEX(mount_sem);
++DECLARE_MUTEX(mount_sem);
+ 
+ extern void wait_for_keypress(void);
+ 
+@@ -304,9 +304,10 @@
+  *	support for such beasts we'll have to change prototype.
+  */
+ 
+-static struct vfsmount *add_vfsmnt(struct nameidata *nd,
+-				struct dentry *root,
+-				const char *dev_name)
++struct vfsmount *add_vfsmnt(struct nameidata *nd,
++                            struct dentry *root,
++                            const char *dev_name,
++			    struct mount_operations *mnt_op)
+ {
+ 	struct vfsmount *mnt;
+ 	struct super_block *sb = root->d_inode->i_sb;
+@@ -331,6 +332,7 @@
+ 	mnt->mnt_owner = current->uid;
+ 	atomic_set(&mnt->mnt_count,1);
+ 	mnt->mnt_sb = sb;
++	mnt->mnt_op = mnt_op;
+ 
+ 	spin_lock(&dcache_lock);
+ 	if (nd && !IS_ROOT(nd->dentry) && d_unhashed(nd->dentry))
+@@ -418,6 +420,8 @@
+ 	list_del(&mnt->mnt_child);
+ 	spin_unlock(&dcache_lock);
+ 	/* Now we can work safely */
++	if(mnt->mnt_op && mnt->mnt_op->release)
++	    mnt->mnt_op->release(mnt);
+ 	if (mnt->mnt_parent != mnt)
+ 		mntput(mnt->mnt_parent);
+ 
+@@ -980,7 +984,7 @@
+ 		put_unnamed_dev(dev);
+ 		return ERR_PTR(-EINVAL);
+ 	}
+-	mnt = add_vfsmnt(NULL, sb->s_root, NULL);
++	mnt = add_vfsmnt(NULL, sb->s_root, NULL, NULL);
+ 	if (!mnt) {
+ 		kill_super(sb, 0);
+ 		return ERR_PTR(-ENOMEM);
+@@ -1011,7 +1015,23 @@
+ 	return 0;
+ }
+ 
+-static int do_umount(struct vfsmount *mnt, int umount_root, int flags)
++static void try_umount_children(struct vfsmount *mnt)
++{
++	struct list_head *next, *curr;
++	struct vfsmount *child;
++
++	/* The mount list is protected by mount_sem */
++	curr = mnt->mnt_mounts.next;
++	while(curr != &mnt->mnt_mounts) {
++		next = curr->next;
++		child = list_entry(curr, struct vfsmount, mnt_child);
++		if(child->mnt_op && child->mnt_op->umount)
++			child->mnt_op->umount(child);
++		curr = next;
++	}
++}
++
++int do_umount(struct vfsmount *mnt, int umount_root, int flags)
+ {
+ 	struct super_block * sb = mnt->mnt_sb;
+ 
+@@ -1034,6 +1054,9 @@
+ 		return do_remount("/", MS_RDONLY, NULL);
+ 	}
+ 
++	/* umount any automatic mounts */
++	try_umount_children(mnt);
++
+ 	spin_lock(&dcache_lock);
+ 
+ 	if (mnt->mnt_instances.next != mnt->mnt_instances.prev) {
+@@ -1211,7 +1234,7 @@
+ 	down(&new_nd.dentry->d_inode->i_zombie);
+ 	if (IS_DEADDIR(new_nd.dentry->d_inode))
+ 		err = -ENOENT;
+-	else if (add_vfsmnt(&new_nd, old_nd.dentry, old_nd.mnt->mnt_devname))
++	else if (add_vfsmnt(&new_nd, old_nd.dentry, old_nd.mnt->mnt_devname, NULL))
+ 		err = 0;
+ 	up(&new_nd.dentry->d_inode->i_zombie);
+ 	up(&mount_sem);
+@@ -1396,7 +1419,7 @@
+ 	down(&nd.dentry->d_inode->i_zombie);
+ 	if (!IS_DEADDIR(nd.dentry->d_inode)) {
+ 		retval = -ENOMEM;
+-		mnt = add_vfsmnt(&nd, sb->s_root, dev_name);
++		mnt = add_vfsmnt(&nd, sb->s_root, dev_name, NULL);
+ 	}
+ 	up(&nd.dentry->d_inode->i_zombie);
+ 	if (!mnt)
+@@ -1601,10 +1624,10 @@
+ 		devfs_mk_symlink (NULL, "root", DEVFS_FL_DEFAULT,
+ 				  path + 5 + path_start, NULL, NULL);
+ 		memcpy (path + path_start, "/dev/", 5);
+-		vfsmnt = add_vfsmnt(NULL, sb->s_root, path + path_start);
++		vfsmnt = add_vfsmnt(NULL, sb->s_root, path + path_start, NULL);
+ 	}
+ 	else
+-		vfsmnt = add_vfsmnt(NULL, sb->s_root, "/dev/root");
++		vfsmnt = add_vfsmnt(NULL, sb->s_root, "/dev/root", NULL);
+ 	/* FIXME: if something will try to umount us right now... */
+ 	if (vfsmnt) {
+ 		set_fs_root(current->fs, vfsmnt, sb->s_root);
+diff -ruN /tmp/linux/include/linux/fs.h linux/include/linux/fs.h
+--- /tmp/linux/include/linux/fs.h	Tue Jan 30 15:57:42 2001
++++ linux/include/linux/fs.h	Tue Jan 30 16:02:37 2001
+@@ -886,6 +886,10 @@
+ extern void kern_umount(struct vfsmount *);
+ extern int may_umount(struct vfsmount *);
+ extern long do_mount(char *, char *, char *, unsigned long, void *);
++extern struct vfsmount *add_vfsmnt(struct nameidata *nd, struct dentry *root,
++                                   const char *dev_name,
++				   struct mount_operations *mnt_op);
++extern int do_umount(struct vfsmount *mnt, int umount_root, int flags);
+ 
+ 
+ extern int vfs_statfs(struct super_block *, struct statfs *);
+@@ -1178,6 +1182,9 @@
+ 
+ /* needed for stackable file system support */
+ extern loff_t default_llseek(struct file *file, loff_t offset, int origin);
++
++/* lookup function for "virtual" files */
++extern struct dentry *(*lookup_virtual)(struct nameidata *, struct dentry *);
+ 
+ extern int __user_walk(const char *, unsigned, struct nameidata *);
+ extern int path_init(const char *, unsigned, struct nameidata *);
+diff -ruN /tmp/linux/include/linux/mount.h linux/include/linux/mount.h
+--- /tmp/linux/include/linux/mount.h	Sun Sep 17 18:51:57 2000
++++ linux/include/linux/mount.h	Tue Jan 30 16:02:37 2001
+@@ -14,6 +14,8 @@
+ 
+ #define MNT_VISIBLE	1
+ 
++extern struct semaphore mount_sem;
++
+ struct vfsmount
+ {
+ 	struct dentry *mnt_mountpoint;	/* dentry of mountpoint */
+@@ -30,6 +32,20 @@
+ 	char *mnt_devname;		/* Name of device e.g. /dev/dsk/hda1 */
+ 	struct list_head mnt_list;
+ 	uid_t mnt_owner;
++	struct mount_operations *mnt_op; /* Operations on vfsmount */
++};
++
++/*
++ * Mount operations: 
++ *   release(node)          - called when this node has been umounted
++ *   umount(node)           - called when the parent is being umounted
++ *
++ * mount_sem is held in all
++ */
++
++struct mount_operations {
++	void (*release) (struct vfsmount *);
++	void (*umount) (struct vfsmount *);
+ };
+ 
+ static inline struct vfsmount *mntget(struct vfsmount *mnt)
+diff -ruN /tmp/linux/kernel/ksyms.c linux/kernel/ksyms.c
+--- /tmp/linux/kernel/ksyms.c	Tue Jan 30 15:57:42 2001
++++ linux/kernel/ksyms.c	Tue Jan 30 16:02:37 2001
+@@ -262,6 +262,9 @@
+ EXPORT_SYMBOL(filemap_sync);
+ EXPORT_SYMBOL(lock_page);
+ 
++/* lookup function for "virtual" files */ 
++EXPORT_SYMBOL(lookup_virtual);
++
+ /* device registration */
+ EXPORT_SYMBOL(register_chrdev);
+ EXPORT_SYMBOL(unregister_chrdev);
+@@ -314,6 +317,9 @@
+ EXPORT_SYMBOL(kern_mount);
+ EXPORT_SYMBOL(kern_umount);
+ EXPORT_SYMBOL(may_umount);
++EXPORT_SYMBOL(add_vfsmnt);
++EXPORT_SYMBOL(do_umount);
++EXPORT_SYMBOL(mount_sem);
+ 
+ /* executable format registration */
+ EXPORT_SYMBOL(register_binfmt);

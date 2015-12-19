@@ -1,0 +1,220 @@
+#!/bin/bash
+
+# This is a parser for DOS/Atari disk images in Midnight Commander. You 
+# need the GPL mtools program (version >= 3.9.9) written by Emmet P. Gray, 
+# Viktor Dukhovni, Alain Knaff and David Niemi.
+
+# Author: Guus Jansman
+
+# Limitations:
+# - Only the 1st primary harddisk partition and floppy images can be read
+# - File attributes are not preserved.
+# - Filenames containing non-ascii characters may cause problems (check mtools info).
+
+# Alternative programs (not supported by this script):
+# + Mounting a loop device (one has to have proper rights though).
+# + XMess's imgtool (less powerfull).
+# + Gilles Vollant's extract (DOS program, less powerful)
+# + bximage (disk image creation, part of Bochs)
+
+# Settings:
+SIZE=1.44m      # Only needed for creating a disk image
+TEMPRCFILE=/tmp/mctmpfile-uimg.$USER.${RANDOM}
+LISTIMG="mdir -/ -a -f"
+ATTRIBIMG="mattrib"
+ADDIMG="mcopy -pm -D o"
+DELETEIMG="mdel"
+EXTRACTIMG="mcopy"
+MKDIRIMG="mmd"
+RMDIRIMG="mrd"
+TESTIMG="minfo"
+CREATEIMG="mformat -C"
+CONFIGIMG="mtoolstest"
+
+case "$SIZE" in
+    160*)   CREATEIMG="$CREATEIMG -f 160"  # 12/40/1/8
+            ;;
+    180*)   CREATEIMG="$CREATEIMG -f 180"  # 12/40/1/9
+            ;;
+    320*)   CREATEIMG="$CREATEIMG -f 320"  # 12/40/2/8
+            ;;
+    360*)   CREATEIMG="$CREATEIMG -f 360"  # 12/40/2/9
+            ;;
+    720*)   CREATEIMG="$CREATEIMG -f 720"  # 12/80/2/9
+            ;;
+    800*)   CREATEIMG="$CREATEIMG -t 80 -h 2 -n 10" # 12/80/2/10
+            ;;
+    1.2*)   CREATEIMG="$CREATEIMG -f 1200" # 12/80/2/15
+            ;;
+    1.4*)   CREATEIMG="$CREATEIMG -f 1440" # 12/80/2/18
+            ;;
+    2.8*)   CREATEIMG="$CREATEIMG -f 2880" # 12/80/2/36
+            ;;
+    *)      CREATEIMG="$CREATEIMG -f 1440" # 12/80/2/18
+            ;;
+esac
+
+drives="ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+createmtoolsrc ()
+{
+#   Find a free drive letter
+    useddrives="`$CONFIGIMG | grep -e '^drive [A-Z]:.*' | sed -e 's/drive \(.\):.*/\1/'`"
+    for (( drivenum=2 ; drivenum != 25 ; drivenum++ )) ; do
+        DRIVE=${drives:drivenum:1}
+        if [[ $useddrives == ${useddrives/$DRIVE/1} ]]; then
+            break;  # Found a free drive letter
+        fi
+    done
+    if [[ drivenum == 25 ]]; then
+        exit 1;     # Could not find a free drive letter
+    fi
+    DRIVE="${DRIVE}:"
+
+#   Create temporary settings file
+    rm -f $TEMPRCFILE ; touch $TEMPRCFILE
+    echo MTOOLS_LOWER_CASE=0 >> $TEMPRCFILE
+    echo MTOOLS_TWENTY_FOUR_HOUR_CLOCK=1 >> $TEMPRCFILE
+    echo "drive $DRIVE" >> $TEMPRCFILE
+    echo "  file=\"$1\"" >> $TEMPRCFILE
+    echo "  mformat_only" >> $TEMPRCFILE
+    if [[ -e "$1" && "`wc -c "$1" | sed -e 's/[ ]*\([^ ]*\).*$/\1/'`" -gt "4194304" ]]; then
+        echo "  partition=1" >> $TEMPRCFILE
+    fi
+
+#   Set environment variable
+    export MTOOLSRC=$TEMPRCFILE
+}
+
+deletemtoolsrc ()
+{
+    rm -f $TEMPRCFILE
+}
+
+mcimgfs_list ()
+{
+    createmtoolsrc "$1"
+    $LISTIMG $DRIVE/ | gawk -v uid=${UID-0} '
+    BEGIN { direntry=0; date="JanFebMarAprMayJunJulAugSepOctNovDec" }
+    /^Directory for / { direntry=1 }
+    /[ ]*[0-9][0-9]* file/ { direntry=0 ; next }
+    /^$/ { next }
+    /^\./ { next }
+    // { if (direntry == 0) next }
+    {
+        if (index($0, "Directory for ") == 1)
+        {
+            curdir=substr($0, 18)
+        }
+        else
+        {
+            tm=substr($0, 36, 5)
+            year=substr($0, 24, 4)
+            month=substr(date, (substr($0, 29, 2)-1)*3 + 1, 3)
+            day=substr($0, 32, 2)
+            if (length($0) > 43)
+            {
+                str=substr($0, 43)
+            }
+            else
+            {
+                str=substr($0, 1, 8)
+                while (substr(str, length(str), 1) == " ")
+                {
+                    str=substr(str, 1, length(str) - 1)
+                }
+                if (substr($0, 10, 3) != "   ")
+                {
+                    str=(str "." $2)
+                }
+            }
+            if (length(curdir) != 0)
+            {
+                str=(curdir "/" str)
+            }
+            if (substr($0, 14, 5) == "<DIR>")
+            {
+                perm="drwxr-xr-x"
+                sz=0
+            }
+            else
+            {
+                perm="-rw-r--r--"
+                sz=substr($0, 14, 9)
+            }
+            printf "%s    1 %-8d %-8d %8d %3s %2d %4d %s %s\n", perm, uid, 0, sz, month, day, year, tm, str
+        }
+    }'
+    deletemtoolsrc
+}
+
+mcimgfs_copyin ()
+{
+    createmtoolsrc "$1"
+    $ADDIMG "$3" "$DRIVE/$2" >/dev/null
+    deletemtoolsrc
+}
+
+mcimgfs_copyout ()
+{
+    createmtoolsrc "$1"
+    $EXTRACTIMG "$DRIVE/$2" - > "$3" 2>/dev/null
+    deletemtoolsrc
+}
+
+mcimgfs_rm ()
+{
+    createmtoolsrc "$1"
+    $ATTRIBIMG -r "$DRIVE/$2" >/dev/null
+    $DELETEIMG "$DRIVE/$2" >/dev/null
+    deletemtoolsrc "$1"
+}
+
+mcimgfs_mkdir ()
+{
+    createmtoolsrc "$1"
+    $MKDIRIMG "$DRIVE/$2" >/dev/null 2>/dev/null
+    deletemtoolsrc
+}
+
+mcimgfs_rmdir ()
+{
+    createmtoolsrc "$1"
+    $RMDIRIMG "$DRIVE/$2" >/dev/null 2>/dev/null
+    deletemtoolsrc
+}
+
+mcimgfs_test ()
+{
+    createmtoolsrc "$1"
+    if $TESTIMG $DRIVE >/dev/null 2>&1; then
+        echo "OK"
+    else
+        echo "UNKNOWN"
+    fi
+    deletemtoolsrc
+}
+
+mcimgfs_create ()
+{
+    createmtoolsrc "$1"
+    $CREATEIMG $DRIVE >/dev/null
+    deletemtoolsrc
+}
+
+umask 077
+
+cmd="$1"
+shift
+case "$cmd" in
+    list)    mcimgfs_list    "$@" ;;
+    rm)      mcimgfs_rm      "$@" ;;
+    copyin)  mcimgfs_copyin  "$@" ;;
+    copyout) mcimgfs_copyout "$@" ;;
+    mkdir)   mcimgfs_mkdir   "$@" ;;
+    rmdir)   mcimgfs_rmdir   "$@" ;;
+#    test)    mcimgfs_test    "$@" ;;        # Not supported by MC extfs
+#    create)  mcimgfs_create  "$@" ;;        # Not supported by MC extfs
+    *)       exit 1 ;;
+esac
+exit 0

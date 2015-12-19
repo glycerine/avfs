@@ -1,0 +1,49 @@
+The avfs fuse daemon is designed to work with 2.6 kernels only.
+
+The requirements are:
+1) fuse support be compiled in the kernel or as a module
+CONFIG_FUSE_FS=m|y
+2) the fuse package (>=2.4) be installed (see http://www.fuse.sf.net)
+
+Compiling and installing the avfs fuse daemon is easy!
+
+How To Install
+--------------
+
+To compile type
+
+  ./configure --enable-fuse
+  make
+
+To install, log in as root and type
+
+  make install
+
+This will install the following files in /usr/bin or $prefix/bin:
+
+/usr/bin
+--------
+avfsd
+davpass
+ftppass
+mountavfs
+umountavfs
+
+
+Additional library files are installed under /usr/lib/avfs (or
+$prefix/lib/avfs). An avfs.h include file is installed into /usr/include
+(or $prefix/include)
+
+If you want to install to some place other then '/usr/', then specify
+the '--prefix' argument to 'configure'.
+
+If you do not have root access you can still use avfs. You should
+either pass '--prefix' a directory that you own (for example your home
+directory), or copy the files manually.
+
+Enabling AVFS
+-------------
+
+mountavfs is used to load the userspace avfs program, and
+umountavfs is used to terminate it. These commands operate
+on a per user basis. No complicated system-wide setup.

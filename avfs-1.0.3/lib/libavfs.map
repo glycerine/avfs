@@ -1,0 +1,37 @@
+LIBAVFS {
+  global:
+    virt_access;
+    virt_chmod;
+    virt_chown;
+    virt_close;
+    virt_closedir;
+    virt_fchmod;
+    virt_fchown;
+    virt_fstat;
+    virt_ftruncate;
+    virt_islocal;
+    virt_lchown;
+    virt_link;
+    virt_lseek;
+    virt_lstat;
+    virt_mkdir;
+    virt_mknod;
+    virt_open;
+    virt_opendir;
+    virt_read;
+    virt_readdir;
+    virt_readlink;
+    virt_remove;
+    virt_rename;
+    virt_rewinddir;
+    virt_rmdir;
+    virt_stat;
+    virt_symlink;
+    virt_truncate;
+    virt_unlink;
+    virt_utime;
+    virt_write;
+  local:
+    *;
+};
+

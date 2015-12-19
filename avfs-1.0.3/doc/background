@@ -1,0 +1,148 @@
+BACKGROUND
+Frederik Eaton (frederik@ugcs.caltech.edu)
+2003/3/26
+
+ ORIGINS
+
+AVFS originated as a shared library which was intended to intercept
+shared library calls from an executable to glibc, overriding a basic
+set of the glibc filesystem-related functions to give transparent
+access to a number of "virtual" filesystem modules. Most of the
+modules are intended to provide access to files stored in various
+types of archives, but there are several which are used to access
+files remotely, via common protocols such as ssh or ftp, and several
+others which don't fall into either category. 
+
+  MC-VFS
+
+The design of avfs is based on that of mc-vfs, a library which was
+created to enable Midnight Commander to use virtual filesystem modules
+like the ones described above. MC-VFS consists of replacements for the
+basic file operations (namely open, close, read, write, opendir,
+readdir, closedir, telldir, seekdir, stat, lstat, fstat, chmod, chown,
+utime, readlink, symlink, link, unlink, rename, chdir, lseek,
+mknod). The functions provided by mc-vfs are designed to work as
+drop-in replacements for the corresponding glibc functions, making it
+easier to modify an existing application to use them. 
+
+This design goes much farther than facilitating better graphical file
+browsers or more convenient utilities - by linking a file server such
+as NFS to mc-vfs, one can export an mc-vfs virtual filesystem through
+the kernel as a standard kernel filesystem, making it available to
+every user on the system.
+
+  USERVFS
+
+Pavel Machek's uservfs (originally podfuk) was to my knowledge the
+first project to take advantage of this idea. Early versions of his
+program consisted of patches to NFS, but because of problems with
+kernel deadlock and the way NFS allocates filehandles (you'll have to
+ask him, I don't understand), he switched to Coda. Neither NFS nor
+Coda is ideal as the kernel side of a userland virtual file system -
+NFS because rpc.nfsd is single threaded and has a deadlock problem
+when used with virtual filesystems, Coda because, among other things,
+its protocol makes random access to files impossible. (Another
+project, Jeremy Fitzhardinge's userfs, solved these problems by
+providing its own kernel filesystem, but the kernel code for that was
+never brought up to date with newer kernels, and instead of using an
+API similar to mc-vfs, it had an interface closer to the kernel VFS
+interface which made it difficult to write new modules for it.)
+
+ AVFS-PRELOAD
+
+The original version of AVFS, avfs-preload, took a different approach
+to serving userland filesystems. It was modeled after a program
+called zlibc, which is supposed to transparently compress and
+uncompress your files for you. Referred to as "the LD_PRELOAD hack",
+the method used by zlibc, and later avfs-preload, circumvented the
+kernel completely, avoiding the shortcomings of existing kernel
+filesystems and allowing users without root access to install and use
+the programs themselves.
+
+To use the original version of avfs, the user would simply set the
+LD_PRELOAD environment variable to point to the avfs shared
+library. Then, when he started an executable from that shell, the
+linker would load libavfs.so before glibc. Libavfs.so overrode a few
+key glibc functions with avfs' own virtual replacements, modifying the
+executable's view of the root filesystem to include avfs' virtual
+modules.
+
+Since nearly all programs which make system calls do so through glibc,
+the preload method was compatible with almost everything and worked
+quite well. Although the preload method is no longer preferred for a
+number of reasons, it is still possible to compile avfs to use it. 
+
+PROBLEMS WITH THE PRELOAD METHOD
+
+Why did the preload method fall out of favor? There are two (??) main
+problems with it. First, for some reason newer versions of glibc
+(>2.1??) made certain key functions private so they couldn't be
+overridden by programs like avfs. Since these functions were used
+internally by many other public glibc functions, fixing avfs to work
+with the newer glibc would have meant overriding an impractical number
+of additional glibc calls. (Note: Solaris libc still works with
+avfs-preload, it is only Linux/glibc which has this problem) The
+second reason is that, for all the cleverness behind the original
+LD_PRELOAD hack, there are still some things that are impossible
+without a real kernel filesystem - the obvious one is making your
+filesystem visible from within the kernel, but there are other issues,
+such as keeping virtual file descriptors open over exec(). (because
+avfs-preload can't do this, it was never able to handle shell
+redirections such as "gzip < virtual_file"; you had to do "cat
+virtual_file | gzip" instead) XXX this paragraph is out of date and
+needs to be updated.
+
+ AVFSCODA
+
+The current replacement for the preload method is similar to uservfs -
+called avfscoda, it exports a real kernel filesystem using Coda,
+reading commands from the kernel Coda module through the /dev/cfs0
+character device. To use avfscoda you must start avfscoda, mount
+/dev/cfs0 on /overlay, and install a special kernel module redir.o
+which redirects failed lookups in your root filesystem to /overlay (so
+you can pretend that the virtual files you see are actually on your
+root filesystem together with the other files). Redir has been tested
+on 2.2.x and 2.4.x kernels, and is unlikely to become incompatible
+with future versions since it works by patching the system call table,
+an interface which tends to be fairly static.
+
+ OTHER VFS LIBRARIES
+
+Because the code for libavfs - the modules and vfs infrastructure -
+comprise the bulk of the project, we can say that avfs is first and
+foremost a virtual filesystem library. So we should take the
+opportunity to mention some of its cousin vfs libraries here:
+
+mc-vfs
+
+Also see above. mc-vfs is a predecessor to avfs, and is currently used
+in mc and gmc. (?? is it being actively developed?) (?? which avfs
+modules other than extfs are inherited from mc-vfs?)
+
+gnome-vfs
+
+- foundation for nautilus (Gnome's new "second generation" file
+manager), but intended to be used by other gnome apps as well
+- extensible via shared library modules (like avfs)
+- unlike avfs, treats 'stackable' modules like 'tar' separately from
+root modules like 'ftp'; protocols such as ftp, http, smb are
+specified in URI's, while stackable tar, gzip are invoked with the
+familiar '#'. 
+
+Example: "http://server/path/to/file.tar#tar/path/to/file.gz#gzip" in
+gnome-vfs would be
+"/#http:server|path|to|file.tar#utar/path/to/file.gz#ugz" in avfs
+
+- unlike avfs, gnome-vfs' API is not intended to be interchangeable
+with glibc's:
+  - gnome-vfs refers to files with a pointer to GnomeVFSHandle, rather
+  than using integer file descriptors;
+  - gnome-vfs has extra functions implementing asynchronous I/O (by
+  spawning helper threads or processes)
+
+- last I checked, gnome-vfs had very little documentation 
+
+kio
+
+Something like a KDE version of gnome-vfs?? Was unable to find any
+documentation of it.

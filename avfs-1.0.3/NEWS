@@ -1,0 +1,191 @@
+Changes from 1.0.2 to 1.0.3 (2015-06-13)
+   - fixed zlib assert triggered for some Huffman encodings
+   - added rar v5 in extfs urar (which is also renamed to uextrar to avoid
+     collision with internal rar module)
+   - some configure script improvements have been done for fuse and liblzma
+     dependencies
+
+Changes from 1.0.1 to 1.0.2 (2014-06-29)
+   - fixed access to files which are larger than 4GB in modules based on
+     archive, state, and utar
+   - added support in utar modules for files larger than 8GB
+   - added zip64 support in uzip module to support more than 64k files
+     and files larger then 4 GiB
+   - improved utar module to skip sime extended headers (so there
+     will no longer be pseudo PaxHeaders files)
+   - changed some extfs scripts to no longer require bash
+
+Changes from 1.0.0 to 1.0.1 (2012-06-12)
+   - compile fixes for macos
+   - fixed hard link count for extfs directories
+   - extfs updates to use bash as executing shell
+   - xz handler support quite some more file endings
+
+Changes from 0.9.9 to 1.0.0 (2011-07-11)
+   - fixed possible crash due to race condition in namespace module
+
+Changes from 0.9.8 to 0.9.9 (2010-10-06)
+   - fixed race condition in avfsd 
+   - system zlib and bzlib may be used instead of shipped versions.
+     Access is slower for some operations (e.g. seeking)
+   - updated bzlib to 1.0.6
+   - support for liblzma has been added so xz and lzma files
+     can be accessed. There is also a module named uxze which
+     uses the external command xz so even without liblzma
+     such archives can be accessed.
+   - fixed crash in ftp module when password file is empty
+   - updated extfs handler and added some new handlers
+   - added ucftp module for uncached ftp support with read and
+     write
+
+Changes from 0.9.7 to 0.9.8 (2007-05-31)
+   - utar supports long names in POSIX ustar archives
+   - fixed truncation of 100 byte long file names in tar archive
+   - fixed crash in zlib code
+   - fixed deadlock in extfs code
+   - updated bzlib to 1.0.3
+   - updated avfsd to use fuse API version 26
+   - several extfs fixes:
+     - fixed ucpio script
+     - fixed bug in extfs symlink handling
+       (patch from Tanmoy Bhattacharya)
+     - fixed ftplist to output correct symlinks and to support http/ssh
+       (patch from Tanmoy Bhattacharya)
+     - extfs scripts rpm and trpm outputs correct file sizes (important for fuse)
+       (patch from Tanmoy Bhattacharya)
+   - ftppass/davpass checks for additional base avfs directories. Environment
+     variable AVFSBASE can be set for non-default directory.
+     (patch from Tanmoy Bhattacharya)
+   - ftp module supports @ in usernames
+     (patch from Tanmoy Bhattacharya)
+   - the avfs library is built and installed by default additionally to
+     fuse/avfscoda/preload depending on the actual system
+   - added RPM spec file for avfs-fuse 
+     (patch from Tanmoy Bhattacharya)
+
+Changes from 0.9.6 to 0.9.7 (2006-06-14)
+   - Fuse daemon can now be installed with --enable-fuse
+   - added symlink rewriting code to make absolute symlinks relative
+     There is an avfsstat entry to toggle this symlink rewrite
+   - temporary files from extfs are cached which speeds up accessing files
+     inside extfs archives
+   - urar module uses unrar in case of missing rar
+   - changed ftp module to use "LIST -al" instead of "LIST -an" to
+     support ftp servers which don't allow the "-an" argument
+   - fixed bug in ftp module when getting ftp files from the root directory
+   - utar and ftp module should be able to handle >2G files
+   - updated extfs modules
+   - fixed invisible hidden files for iso9660
+   - added extfs support for 7zip
+   - fixed possible segfault in extfs module
+   - fixed bug in the ulha extfs module which had problems with file names
+     containing spaces
+   - updated documentation
+
+Changes from 0.9.5 to 0.9.6
+   - fixed return value of local_close so errors in close() can be detected
+   - updated date parsing in extfs so patchfs handler works again
+   - urar module should be able to read rar archives from newer rar versions
+
+Changes from 0.9.3 to 0.9.5
+   - improved support for magic character inside filenames
+   - fixed endless loop in bz2 handler
+   - automake is now used for building avfs
+   - updated extfs handlers
+   - other small bugfixes (see ChangeLog for details)
+
+Changes from 0.9.1 to 0.9.3
+   - Bugfixes (see ChangeLog for details)
+
+Changes from 0.9.0 to 0.9.1
+  - Lots of bugfixes (see ChangeLog for details)
+  - Optimized lookups in large directories
+
+Changes from 0.5.2 to 0.9.0
+  - Major rewrite touching almost all interfaces and code
+  - Magic char changed from '@' to '#'. I hope this is the last such
+    change ;)
+  - New handlers:
+      o ftp (read only for the moment)
+      o http
+      o rsh
+      o dav (contributed by Justin Mason)
+  - Other improvements:
+      o Indexing of gzip and bzip2 files. This achieves fast random
+        access to the uncompressed files without caching to whole file.
+      o Better disk cache management, tunable parameters in
+        /#avfsstat/cache
+      o Multi-threaded operation for avfscoda and preload
+      o Philosophy change for preload method: only a thin client is
+        preloaded, work done in a server
+      o Write support is working in avfscoda, redir doesn't fully
+        support this yet
+      o Support for avfscoda with reiserfs (2.4.4 and above)
+   - Degradations:
+      o ugz, utar, floppy, are now read only. Will be fixed.
+      o Preload is only supported on Solaris, old Linux libc's are now
+        not supported.
+      o A few things are missing from the preload method (you can't
+        'cd' into archive, mmap() doesn't work, etc.), Will eventually
+        be fixed.
+
+Changes from 0.5.1 to 0.5.2
+  - Fixed redir.c compilation problems with newer LIBCs
+  - Made redir.c work on 2.4.x kernels
+
+Changes from 0.5 to 0.5.1
+  - Fixed installation problems
+
+Changes from 0.4 to 0.5
+  - Avfscoda introduced, because the preload method will not work for
+    GLIBC 2.1 and up. 
+  - Fixed minor bug in zipfile handling (jar files)
+
+Changes from 0.3 to 0.4
+ - 'External fs' from Midnight Commander. This provides handlers for
+   rpm, deb, zoo, lha, cpio etc...
+ - Performance enhancements with 'ugz' handler (now uses zlib)
+ - Write support for tar-archives
+ - Write support for gzip-files
+ - Tested on Solaris 2.7
+ - Changed module versioning scheme
+ - Fixed some bugs:
+    o Work around tcsh closing all file descriptors
+    o Fixed symlink resolvation bug
+    o Fixed floppy bugs (mtoos does weird things with 0 sized files)
+
+Changes from version 0.2 to 0.3
+
+ - Magic char is now '@' instead of ':'
+ - Small path-format change (move it closer to the mc-vfs format)
+ - Symbolic link handling
+ - Solaris 2.6 support
+ - Performance enhancements (e.g. 'cp -r' for .tgz, zipfiles)
+ - Avfsstat handler: information about avfs
+ - 'ar' handling (.a and .deb files) 
+ - Floppy handling (read/write)
+ - RAR-file support finished
+ - Non shared mmap-ing of virtual files (some versions of grep need this)
+ - BIG internal changes + minor changes to the module interface
+ - Configuring with autoconf
+ - RPM spec files for Linux GLIBC and libc5
+ 
+Changes from version 0.1.1 to 0.2
+
+ - ZIP-file support
+ - Partial RAR-file support
+ - Performance improvements for compressed files
+ - Now stable on Solaris as well as Linux.
+ - Modular handlers
+ - Many-many bugs fixed
+
+Changes from version 0.1 to 0.1.1
+
+ - Fixed a security bug spotted by Jan Niehusmann <jan@gondor.com>
+ - Fixed the .avfs_dummyfile bug first spotted by Demon of the 
+   Known Universe <psycho@dodds.net>
+
+Version 0.1
+
+ - First release
+

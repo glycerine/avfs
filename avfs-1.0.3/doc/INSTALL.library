@@ -1,0 +1,29 @@
+Introduction
+------------
+
+In contrast to the avfscoda or preload code using avfs as a library requires
+support from the application. The advantage is that the library is much more
+portable and should compile on any system.
+
+How To Install
+--------------
+
+To compile type
+
+  ./configure --enable-library
+  make
+
+To install, log in as root and type
+
+  make install
+
+This will install the library in '/usr/lib' and the header files in
+'/usr/include'. It will also install some extfs handlers under
+'/usr/lib/avfs/extfs/'.
+
+If you want to install to some place other then '/usr/', then specify
+the '--prefix' argument to 'configure'.
+
+If you do not have root access you can still use avfs. You should
+pass '--prefix' a directory that you own (for example your home
+directory).

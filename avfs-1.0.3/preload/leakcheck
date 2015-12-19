@@ -1,0 +1,3 @@
+#! /bin/sh
+
+gdb -batch -n $1 -x /tmp/leak.out 

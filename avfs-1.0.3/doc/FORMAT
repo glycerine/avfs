@@ -1,0 +1,67 @@
+Here is the description of the virtual path format:
+
+The canonical form
+==================
+
+   [basepath]#handler[options][:parameters][/internalpath]
+
+'basepath', if given is an ordinary file path (can be a regular file,
+or a directory, and can be a real or a virtual path).
+
+'#' is the character that prefixes the handler name and is
+defined by VDEV_SEP_CHAR. 
+
+'handler' is the name of the file handler (filter, remote file
+access or other processing unit). Handler names consist of only
+alphanumeric characters ([a-z0-9_]). Handler names are case
+sensitive, and should always be lower case.
+
+'options' is an optional field containing "mount options". These
+options should not change the content of the virtual mount, only the
+permissions or mode of access. For example:
+
+'+' - read-write
+'=' - don't cache
+
+'parameters' are part of the path, but before the mount root. 
+
+'internalpath' is the optional path within the handlers file
+structure. It is prefixed by '/'.
+
+Notes: 
+
+   The only special characters are '#' and '/'.
+
+   If an ordinary (non virtual) file name contains a '#', then this
+   file can be accessed normaly (i.e. existing files take
+   precedence over virtual ones). If a virtual path contains '#'
+   (even in the real path part) they must be represented by '##'.
+
+   (This way a situation can arrise, where you can't access a
+   virtual file, because a real file 'shadows' it. This is a case
+   of tough luck ;)
+
+Examples (not all of these are implemented yet): 
+
+   /home/user/archive.tar.gz#ugz#utar/path/file
+   /#ftp:host.dom.org/pub/README
+   /#http:www.dom.org|some|where|index.html
+   /#http:localhost:8000|~user|file 
+   file#gz-9
+   /#floppy:a/xyz
+   
+The non-canonical virtual paths
+===============================
+
+This is to make life easier for the user.
+
+   dir/file.ext#[/extrapath]
+
+With this notation, the '#' is substituted with the handler(s)
+determined from the file's extension. Any parameters after the # are
+passed to the last expanded handler.
+
+Examples:
+   file.gz#             == file.gz#ugz
+   archive.tar.gz#/dir  == archive.tar.gz#ugz#utar/dir
+   archive.tar.gz#+/dir == archive.tar.gz#ugz#utar+/dir	

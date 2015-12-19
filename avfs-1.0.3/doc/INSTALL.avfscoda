@@ -1,0 +1,282 @@
+
+---------------------------------------------------------------
+   WARNING   WARNING   WARNING   WARNING   WARNING   WARNING
+---------------------------------------------------------------
+ 
+Avfscoda changes the behavior of the kernel. This change is simple,
+and in theory it is quite harmless, but regardless you should be
+aware! Backing up important data is always a good idea.
+
+This is alpha software, you should _NOT_INSTALL_ avfscoda on important
+servers!
+
+Avfscoda has been designed with security in mind, but it may not yet
+be 100% secure. Do not install it, if local security is very important
+(i.e. if you do not want a non root user to be able gain root access)!
+
+A Little Background
+-------------------
+
+Well brave one, enter the wonderful world of avfscoda. If you have
+used AVFS with the 'preload' method, you should be pleasantly
+surprised by avfscoda. It is much faster (things remain cached between
+command invocations), there is no need to mess with the LD_PRELOAD
+variable, and more things should work (most notably the input/output
+redirection).
+
+However there are drawbacks (apart from the alpha nature of the
+software):
+
+ - virtual file writing does not work yet
+
+ - there is a kernel module involved which must be recompiled for each
+   new kernel that you install
+
+How To Install	 
+--------------
+
+First you must make sure that the coda module is compiled into the
+kernel, or is available as a kernel module (see chapter
+'Troubleshooting' point 3). Most distributions do have coda as a
+kernel module, but if you compile your own kernel, then you need to
+enable CODA support!
+
+Check, if there is an RPM package for the realase + distribution that
+you are using. For example 'avfs-VVV-redhat60.i386.rpm' should work
+with vanila RedHat 6.0 distributions.
+
+To install the RPM package, log in as root, and type:
+
+     rpm -Uvh avfs-VVV-DDD.i386.rpm
+
+And that is it. 
+
+The binary avfscoda distribution depends on the exact kernel version
+used, so if you installed a new kernel, you must get the avfs source
+and compile it. See the section 'How to compile'
+
+If you are not sure, that the RPM version matched your kernel, then
+after installing the RPM type:
+
+    /sbin/lsmod
+
+To see if the 'redir' module is inserted in the kernel. If there is a
+line beggining with 'redir' then you are OK. If not then you need to
+recompile avfscoda.
+
+Enabling AVFS
+-------------
+
+After installing AVFS login in a new shell. 
+
+In a shell, type 'avfs-on'. Then type 'avfs-stat'. It should write
+version and copyright information. If not, then see the section
+'Troubleshooting'. 
+
+If you want to enable avfs by default, create a '.avfs' file in your
+home directory by typing
+     
+     touch ~/.avfs
+
+After this avfs should be turned on by default when you log in. To
+turn avfs off in your shell, type 'avfs-off'. After this 'avfs-stat'
+should not write anything.
+
+How To Compile
+--------------
+
+  1) Untar the source tree.
+
+  2) Type './configure'. It should detect that avfscoda should be built:
+
+        checking whether to build preload or avfscoda... avfscoda
+  
+     If for some reason it does not, you can force it by adding
+     '--disable-preload' argument to configure.
+
+     If the configure script cannot find an xml library for dav, then
+     you have two options:
+
+      - install an xml library (expat or gnome-xml)
+      or
+      - pass the '--disable-dav' argument to configure
+
+  3) Do 'make'
+
+  4) Log in as root, and type 'make install' to complete the installation
+
+  5) Do 'make start' to start the avfscoda daemon and insert the
+     redirection module
+
+Hopefully everything is set. Now you can go onto the 'Enabling AVFS'
+section.
+
+Troubleshooting
+---------------
+
+Avfscoda is installed and started in quite a complex way. So many
+things could go wrong in the installation. The following lists the
+things you could check. If you find something wrong, please report it,
+so I can improve the installation method.
+
+(This is also a guide on how to install avfscoda by hand, if you
+should want to do that).
+
+ 1) Check if the '/overlay' directory exists:
+
+     If not, then create it:
+
+       mkdir /overlay
+    
+ 2) Check if the CODA device, '/dev/cfs0' exists:
+
+     'ls -l /dev/cfs*' should show it like this:
+
+       crw-------   1 root     root      67,   0 Jan 20  1999 /dev/cfs0
+       crw-------   1 root     root      67,   1 Jan 20  1999 /dev/cfs1
+
+     If not, then you need to create it with the command:
+
+       mknod -m 600 /dev/cfs0 c 67 0
+       mknod -m 600 /dev/cfs1 c 67 1
+
+ 3) Check if the CODA filesystem is in your kernel:
+
+       cat /proc/filesystems
+
+     If coda is listed, then OK, if not try inserting the coda module
+     first:
+
+       modprobe coda
+
+     If coda is not in the kernel or as a kernel module, then you need
+     to enable CODA filesystem support in the kernel, and recompile
+     the kernel (see /usr/src/linux/README). 
+
+ 4) Check if the avfscoda daemon is running:
+
+       ps axw | grep avfscoda
+
+     It should find at least 2 processes with the name 'avfscoda'
+     running. If not you could try to start it by hand:
+
+       /usr/sbin/avfscoda
+
+
+ 5) Check if the overlay directory is mounted and virtual files are
+    accessible. 
+
+      ls /overlay/#avfsstat
+    
+    If not, then there is probably something wrong with the coda
+    filesystem, or the avfsocda module (see 1-4).
+
+ 6) Check if the 'redir' module is inserted in the kernel:
+
+       /sbin/lsmod
+
+     If 'redir' is not in the kernel try inserting it by hand (as root):
+
+     insmod /lib/modules/your_kernel_version/misc/redir.o
+
+     If redir.o is not in that directory, or if insmod prints
+     something about the kernel version not matching, then you need to
+     recompile avfscoda (see the section 'How to compile').
+
+ 7) Check if you can access virtual files:
+
+        cat /#avfsstat/copyright
+        ls -al targzfile.tgz#/
+      
+    If not, then try to turn on AVFS in your shell:
+
+        cd /#avfs-on
+
+    It should print 'cd: /#avfs-on: File exists', if not then the
+    redirection module probably does not work (see 6).
+
+  8) Check handlers:
+
+        cat /#avfsstat/modules
+
+     This should list all supported handlers. If things like "rpm" and
+     "deb" are not listed, then the 'extfs' modules have not been
+     installed. You can do this by copying the extfs directiory from
+     the source to /usr/lib/avfs.
+  
+  9) Check if 'avfs-on', 'avfs-off' and 'avfs-stat' work.
+
+     If not, try to login in a new shell. If they still not work, then
+     the shell login script probably did not include the file which
+     defines these aliases.
+
+     Copy the 'avfscoda.sh' and 'avfscoda.csh' files from the
+     'scripts' directory of the source distribution to /etc/profile.d.
+
+     If there is no /etc/profile.d, you may try to edit the files
+     /etc/profile, and /etc/csh.cshrc and source the files
+     'avfscoda.sh' and 'avfscoda.csh' respectively:
+
+/etc/csh.cshrc:
+-------------------------------------------------------------------------------
+# /etc/csh.cshrc: system-wide .cshrc file for csh(1)/tcsh(1).
+.....
+
+if ( -f /etc/avfscoda.csh ) then
+  source /etc/avfscoda.csh
+endif
+-------------------------------------------------------------------------------
+
+/etc/profile:
+-------------------------------------------------------------------------------
+# /etc/profile: system-wide .profile file for the Bourne shell (sh(1))
+.....
+
+if [ -f /etc/avfscoda.sh ]; then
+  source /etc/avfscoda.sh
+fi
+-------------------------------------------------------------------------------
+
+     
+How Does It Work
+----------------
+
+Avfscoda works by mounting the whole root filesystem, plus the virtual
+files in the directory '/overlay', through the CODA filesystem client.
+
+It would be very inconvenient to always have to switch to the
+'/overlay' directory, when you need a virtual file, so there is a
+redirector module, which intercepts system calls with a path parameter
+(e.g. open(), stat(), etc.), and checks if it is a virtual file. If it
+is, it prefixes the path with '/overlay'.
+
+There is also a per-process flag, that indicates whether that process
+should have avfs functionality or not. If this flag is not set, then
+the redirector module will not examine or change the paths.
+
+Here is a diagram, of how avfscoda works:
+       	       	 			
+		+----------------------------------------+  
+		|kernel		      other filesystems  |	  
+		|      			     :		 |
+		| +-----------+              :		 |
+		| |CODA       |		+-----------+	 |
+       	       	| |filesystem |.........|redirector |	 |
+       	       	| |module     |	       	|module	    |	 |
+		| +-----------+		+-----------+	 |
+		|      |		     | 	       	 |
+		+------|---------------------|-----------+
+		       |		     | 	     	 
+		  +-----------+	       	     | 	     
+		  |avfscoda   |		 Your program  	       	
+		  |daemon     |	       		     
+		  +-----------+	       	
+
+
+The avfscoda daemon is started by an init-script at the startup of the
+operating system. The redirector module is also loaded at the same
+time.
+
+The avfs-flag is turned on by the shell's init script, depending on
+whether the user has a '.avfs' in its home directory or not. This flag
+can be turned on or off later by the user.

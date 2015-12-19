@@ -1,0 +1,54 @@
+#!/bin/bash
+#
+#	/etc/rc.d/init.d/avfscoda
+#
+# Starts the AVFS coda support
+#
+# chkconfig: 345 85 25
+# description: Starts the AVFS coda support module.
+# processname: avfscoda
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+case "$1" in
+start)
+    action "Loading redir module: " /sbin/modprobe -s redir
+
+    # try to load coda module (no problem if it fails, because it can be
+    # in the kernel)
+    /sbin/modprobe coda > /dev/null 2>&1
+
+    echo -n "Starting avfscoda: "
+    daemon avfscoda
+    echo
+    touch /var/lock/subsys/avfscoda
+    ;;
+
+stop)
+    echo -n "Stopping avfscoda: "
+    if test -x /usr/sbin/flushredir; then
+	/usr/sbin/flushredir
+    fi
+    killproc avfscoda
+    echo
+    action "Unloading redir module: " /sbin/rmmod -s redir
+    rm -f /var/lock/subsys/avfscoda
+    ;;
+
+restart)
+    $0 stop
+    $0 start
+    ;;
+
+status)
+    status avfscoda
+    ;;
+
+*)
+    echo "Usage: $0 {start|stop|status|restart}"
+    exit 1
+esac
+
+exit 0
+
